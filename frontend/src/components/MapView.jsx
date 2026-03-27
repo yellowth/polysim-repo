@@ -26,8 +26,23 @@ export default function MapView({ grcSentiment, selectedGrc, onSelectGrc, classN
       .catch(() => console.warn("GeoJSON not loaded — using fallback markers"));
   }, []);
 
+  // Normalize GeoJSON name (e.g. "ALJUNIED") to match grc_profiles key (e.g. "Aljunied GRC")
+  const normalizeGrcName = (rawName) => {
+    if (!rawName) return "";
+    const titleCase = rawName.replace(/\w\S*/g, (txt) =>
+      txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
+    );
+    // Add GRC suffix if it's a multi-member constituency (most are GRC)
+    const smcs = ["Hougang", "Potong Pasir", "Radin Mas", "Bukit Batok", "Bukit Panjang",
+                  "Hong Kah North", "Kebun Baru", "Macpherson", "Marymount", "Mountbatten",
+                  "Pioneer", "Punggol West", "Yio Chu Kang", "Yuhua"];
+    if (smcs.includes(titleCase)) return `${titleCase} SMC`;
+    return `${titleCase} GRC`;
+  };
+
   const styleFeature = (feature) => {
-    const name = feature.properties?.Name || feature.properties?.ED_DESC || feature.properties?.name || "";
+    const rawName = feature.properties?.ED_DESC || feature.properties?.Name || "";
+    const name = normalizeGrcName(rawName);
     const sentiment = grcSentiment[name];
     const supportPct = sentiment
       ? (sentiment.support / (sentiment.total || 1)) * 100
@@ -42,7 +57,8 @@ export default function MapView({ grcSentiment, selectedGrc, onSelectGrc, classN
   };
 
   const onEachFeature = (feature, layer) => {
-    const name = feature.properties?.Name || feature.properties?.ED_DESC || feature.properties?.name || "";
+    const rawName = feature.properties?.ED_DESC || feature.properties?.Name || "";
+    const name = normalizeGrcName(rawName);
     layer.on("click", () => onSelectGrc(name));
 
     const sentiment = grcSentiment[name];
