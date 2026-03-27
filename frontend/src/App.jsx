@@ -26,7 +26,10 @@ export default function App() {
   };
 
   const handleLeverChange = async (lever, value) => {
-    const res = await fetch(`http://localhost:8000/api/adjust/${policyId}?lever=${lever}&value=${value}`, { method: "POST" });
+    const res = await fetch(
+      `http://localhost:8000/api/adjust/${policyId}?lever=${lever}&value=${value}`,
+      { method: "POST" }
+    );
     const data = await res.json();
     setPolicyId(data.policy_id);
     sim.connect(data.policy_id);

@@ -17,9 +17,11 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 # In-memory store
 simulations = {}
 
+
 @app.get("/api/health")
 async def health():
     return {"status": "ok", "project": "polisim"}
+
 
 @app.post("/api/upload")
 async def upload_policy(file: UploadFile = File(...)):
@@ -30,15 +32,17 @@ async def upload_policy(file: UploadFile = File(...)):
     simulations[policy_id] = {"provisions": provisions, "results": [], "status": "parsed"}
     return {"policy_id": policy_id, "provisions": provisions}
 
+
 @app.get("/api/demographics")
 async def get_demographics():
     """Return GRC profiles and demographic segments."""
     profiles = load_grc_profiles()
     return {"grcs": profiles}
 
+
 @app.websocket("/ws/simulate/{policy_id}")
 async def simulate(websocket: WebSocket, policy_id: str):
-    """Stream simulation: agents → contagion → vote prediction."""
+    """Stream simulation: agents -> contagion -> vote prediction."""
     await websocket.accept()
 
     if policy_id not in simulations:
@@ -78,6 +82,7 @@ async def simulate(websocket: WebSocket, policy_id: str):
     except WebSocketDisconnect:
         pass
 
+
 @app.post("/api/adjust/{policy_id}")
 async def adjust(policy_id: str, lever: str, value: float):
     """Apply lever adjustment, return new sim ID for re-run."""
@@ -107,6 +112,7 @@ def aggregate_by_grc(results: list) -> dict:
         data["reject_pct"] = round(data["reject"] / t * 100, 1)
     return grcs
 
+
 def compute_vote_prediction(results: list) -> dict:
     """Simple vote aggregation from agent results."""
     votes = {"for": 0, "against": 0, "undecided": 0, "total": 0}
@@ -123,6 +129,7 @@ def compute_vote_prediction(results: list) -> dict:
         "total_agents": len(results),
         "call": "PASS" if votes["for"] / t > 0.5 else "FAIL"
     }
+
 
 if __name__ == "__main__":
     import uvicorn

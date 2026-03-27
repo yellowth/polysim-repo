@@ -34,6 +34,7 @@ FAMILY_STATUS_BY_AGE = {
     "60+": "retired or semi-retired, grandchildren"
 }
 
+
 def load_grc_profiles() -> dict:
     """Load GRC demographic profiles."""
     path = os.path.join(os.path.dirname(__file__), "..", "data", "grc_profiles.json")
@@ -41,6 +42,7 @@ def load_grc_profiles() -> dict:
         with open(path) as f:
             return json.load(f)
     return get_default_grc_profiles()
+
 
 def get_default_grc_profiles() -> dict:
     return {
@@ -57,6 +59,7 @@ def get_default_grc_profiles() -> dict:
         "Sengkang GRC": {"pop": 137980, "chinese": 0.72, "malay": 0.13, "indian": 0.11, "others": 0.04, "center": [1.3920, 103.8950]},
         "Nee Soon GRC": {"pop": 139876, "chinese": 0.64, "malay": 0.18, "indian": 0.14, "others": 0.04, "center": [1.4200, 103.8350]},
     }
+
 
 def build_personas(target_count: int = 40) -> list[dict]:
     """

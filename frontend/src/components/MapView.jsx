@@ -2,15 +2,13 @@ import { MapContainer, TileLayer, GeoJSON, Tooltip } from "react-leaflet";
 import { useState, useEffect } from "react";
 import "leaflet/dist/leaflet.css";
 
-// Singapore center coordinates
 const SG_CENTER = [1.3521, 103.8198];
 const SG_ZOOM = 11.5;
 
-// Color scale
 function sentimentColor(supportPct) {
-  if (supportPct >= 60) return "#22c55e"; // green
-  if (supportPct >= 40) return "#f59e0b"; // amber
-  return "#ef4444"; // red
+  if (supportPct >= 60) return "#22c55e";
+  if (supportPct >= 40) return "#f59e0b";
+  return "#ef4444";
 }
 
 function sentimentOpacity(total) {
@@ -22,8 +20,6 @@ export default function MapView({ grcSentiment, selectedGrc, onSelectGrc, classN
   const [geoData, setGeoData] = useState(null);
 
   useEffect(() => {
-    // Load GeoJSON - in production, fetch from /data/
-    // For hackathon: use GRC center points as circle markers if GeoJSON unavailable
     fetch("/sg_electoral_boundaries.geojson")
       .then((r) => r.json())
       .then(setGeoData)
@@ -31,7 +27,7 @@ export default function MapView({ grcSentiment, selectedGrc, onSelectGrc, classN
   }, []);
 
   const styleFeature = (feature) => {
-    const name = feature.properties?.Name || feature.properties?.name || "";
+    const name = feature.properties?.Name || feature.properties?.ED_DESC || feature.properties?.name || "";
     const sentiment = grcSentiment[name];
     const supportPct = sentiment
       ? (sentiment.support / (sentiment.total || 1)) * 100
@@ -46,18 +42,20 @@ export default function MapView({ grcSentiment, selectedGrc, onSelectGrc, classN
   };
 
   const onEachFeature = (feature, layer) => {
-    const name = feature.properties?.Name || feature.properties?.name || "";
+    const name = feature.properties?.Name || feature.properties?.ED_DESC || feature.properties?.name || "";
     layer.on("click", () => onSelectGrc(name));
 
     const sentiment = grcSentiment[name];
     if (sentiment) {
       const sPct = ((sentiment.support / (sentiment.total || 1)) * 100).toFixed(1);
       layer.bindTooltip(`${name}: ${sPct}% support`, { sticky: true });
+    } else {
+      layer.bindTooltip(name, { sticky: true });
     }
   };
 
   return (
-    <div className={className}>
+    <div className={`${className} h-full`}>
       <MapContainer
         center={SG_CENTER}
         zoom={SG_ZOOM}

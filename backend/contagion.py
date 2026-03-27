@@ -1,4 +1,5 @@
-"""Simple social contagion model — weighted neighbor influence."""
+"""Simple social contagion model -- weighted neighbor influence."""
+
 
 def get_influence_weight(agent_a: dict, agent_b: dict) -> float:
     """Calculate influence weight between two agents."""
@@ -25,6 +26,7 @@ def get_influence_weight(agent_a: dict, agent_b: dict) -> float:
     weight += social_media.get(pa["age"], 0.05)
 
     return min(weight, 0.4)  # cap total influence
+
 
 def propagate_sentiment(results: list[dict], round_num: int) -> list[dict]:
     """One round of sentiment propagation across all agents."""
@@ -55,12 +57,14 @@ def propagate_sentiment(results: list[dict], round_num: int) -> list[dict]:
         new_results.append(updated)
     return new_results
 
+
 def _score_to_label(score: float) -> str:
     if score > 0.33:
         return "support"
     elif score < -0.33:
         return "reject"
     return "neutral"
+
 
 def _age_mid(age_band: str) -> int:
     mapping = {"21-29": 25, "30-44": 37, "45-59": 52, "60+": 68}

@@ -22,6 +22,7 @@ LEVER_DEFINITIONS = {
     }
 }
 
+
 def apply_lever(provisions: list[dict], lever: str, value: float) -> list[dict]:
     """Modify provisions based on lever adjustment."""
     modified = copy.deepcopy(provisions)
@@ -47,6 +48,7 @@ def apply_lever(provisions: list[dict], lever: str, value: float) -> list[dict]:
             p["parameters"]["rollout_months"] = value
 
     return modified
+
 
 def get_lever_definitions() -> dict:
     return LEVER_DEFINITIONS

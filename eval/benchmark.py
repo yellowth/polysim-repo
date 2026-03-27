@@ -1,70 +1,72 @@
-"""Benchmark script for evaluating Polisim simulation accuracy."""
-import json, asyncio, sys, os
+"""
+Polisim benchmark/eval script.
+Validates simulation output quality against known priors.
+"""
+import json
+import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
+def validate_demographic_differentiation(results: list) -> dict:
+    """Check that different demographics show differentiated sentiment."""
+    by_race = {}
+    for r in results:
+        race = r["persona"]["race"]
+        if race not in by_race:
+            by_race[race] = {"support": 0, "total": 0}
+        score_map = {"support": 1, "neutral": 0, "reject": -1}
+        by_race[race]["support"] += score_map.get(r["sentiment"], 0)
+        by_race[race]["total"] += 1
 
-from demographics import build_personas
-from agent_engine import run_simulation
-from contagion import propagate_sentiment
-
-
-SAMPLE_PROVISIONS = [
-    {
-        "id": 1,
-        "title": "GST Voucher Enhancement",
-        "summary": "Increase GST Voucher cash payout from $500 to $700 for households with income below $3,000/month",
-        "affected_groups": ["low-income", "elderly"],
-        "parameters": {"income_threshold": 3000, "amount": 700}
-    },
-    {
-        "id": 2,
-        "title": "HDB BTO Price Adjustment",
-        "summary": "Reduce BTO flat prices by 5% for first-time buyers under age 35",
-        "affected_groups": ["young adults", "first-time buyers"],
-        "parameters": {"discount_pct": 5, "age_cap": 35}
-    },
-    {
-        "id": 3,
-        "title": "Foreign Worker Levy Increase",
-        "summary": "Increase foreign worker levy by 15% for S-Pass holders in services sector",
-        "affected_groups": ["employers", "SMEs", "service sector"],
-        "parameters": {"levy_increase_pct": 15}
+    sentiments = {
+        race: data["support"] / data["total"]
+        for race, data in by_race.items()
+        if data["total"] > 0
     }
-]
+
+    variance = max(sentiments.values()) - min(sentiments.values()) if sentiments else 0
+    return {
+        "by_race": sentiments,
+        "variance": variance,
+        "differentiated": variance > 0.1,  # at least 10% spread
+    }
 
 
-async def run_benchmark():
-    print("Building personas...")
-    personas = build_personas(target_count=20)
-    print(f"  {len(personas)} personas created")
+def validate_vote_coherence(vote_prediction: dict) -> dict:
+    """Check vote totals sum to 100%."""
+    total = vote_prediction.get("for_pct", 0) + \
+            vote_prediction.get("against_pct", 0) + \
+            vote_prediction.get("undecided_pct", 0)
+    return {
+        "total_pct": round(total, 1),
+        "coherent": abs(total - 100) < 1.0
+    }
 
-    print("\nRunning simulation...")
-    results = await run_simulation(personas, SAMPLE_PROVISIONS)
-    print(f"  {len(results)} agent results collected")
 
-    # Analyze results
-    sentiments = {"support": 0, "neutral": 0, "reject": 0}
-    for r in results:
-        sentiments[r["sentiment"]] = sentiments.get(r["sentiment"], 0) + 1
+def run_eval(results_file: str):
+    """Load results JSON and run all checks."""
+    with open(results_file) as f:
+        data = json.load(f)
 
-    print("\nPre-contagion sentiment:")
-    for s, count in sentiments.items():
-        print(f"  {s}: {count} ({count/len(results)*100:.1f}%)")
+    results = data.get("agent_results", [])
+    vote = data.get("vote_prediction", {})
 
-    # Run contagion
-    for round_num in range(3):
-        results = propagate_sentiment(results, round_num)
+    print("=== Polisim Eval ===")
+    print(f"Total agents: {len(results)}")
 
-    sentiments_post = {"support": 0, "neutral": 0, "reject": 0}
-    for r in results:
-        sentiments_post[r["sentiment"]] = sentiments_post.get(r["sentiment"], 0) + 1
+    diff = validate_demographic_differentiation(results)
+    print(f"\nDemographic differentiation: {'PASS' if diff['differentiated'] else 'FAIL'}")
+    print(f"  Variance: {diff['variance']:.2f}")
+    for race, score in diff["by_race"].items():
+        print(f"  {race}: {score:.2f}")
 
-    print("\nPost-contagion sentiment (3 rounds):")
-    for s, count in sentiments_post.items():
-        print(f"  {s}: {count} ({count/len(results)*100:.1f}%)")
-
-    print("\nBenchmark complete.")
+    if vote:
+        coherence = validate_vote_coherence(vote)
+        print(f"\nVote coherence: {'PASS' if coherence['coherent'] else 'FAIL'}")
+        print(f"  For: {vote.get('for_pct')}% | Against: {vote.get('against_pct')}% | Undecided: {vote.get('undecided_pct')}%")
+        print(f"  Call: {vote.get('call')}")
 
 
 if __name__ == "__main__":
-    asyncio.run(run_benchmark())
+    if len(sys.argv) < 2:
+        print("Usage: python benchmark.py <results.json>")
+        sys.exit(1)
+    run_eval(sys.argv[1])

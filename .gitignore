@@ -4,3 +4,5 @@ __pycache__/
 .env
 dist/
 .vite/
+venv/
+.DS_Store
