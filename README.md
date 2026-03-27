@@ -1,11 +1,11 @@
-# 🐟 Polisim — Policy Simulation Engine
+# 🐟 Polysim — Policy Simulation Engine
 
 > Every policy is a bet on how 5.6 million people will react.
-> Polisim lets you run that bet 1,000 times before anyone votes.
+> Polysim lets you run that bet 1,000 times before anyone votes.
 
 ## What it does
 
-Upload a Singapore government policy document → Polisim spawns 40 autonomous LLM agents representing real demographic micro-segments → Watch sentiment and vote predictions emerge across GRC constituencies in real-time, with social contagion cascades.
+Upload a Singapore government policy document → Polysim spawns 40 autonomous LLM agents representing real demographic micro-segments → Watch sentiment and vote predictions emerge across GRC constituencies in real-time, with social contagion cascades.
 
 ## Architecture
 
