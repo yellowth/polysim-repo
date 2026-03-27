@@ -10,6 +10,10 @@ from agent_engine import run_simulation, stream_agent_results
 from contagion import propagate_sentiment
 from demographics import build_personas, load_grc_profiles
 from levers import apply_lever
+from mock_mode import mock_parse_provisions, mock_agent_response
+
+# Mock mode: enabled when no OpenAI key is set
+MOCK_MODE = not os.getenv("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY", "").startswith("sk-...")
 
 app = FastAPI(title="Polisim API")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -20,14 +24,17 @@ simulations = {}
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "project": "polisim"}
+    return {"status": "ok", "project": "polisim", "mock_mode": MOCK_MODE}
 
 
 @app.post("/api/upload")
 async def upload_policy(file: UploadFile = File(...)):
     """Parse uploaded PDF into structured provisions."""
     content = await file.read()
-    provisions = await parse_policy_pdf(content)
+    if MOCK_MODE:
+        provisions = mock_parse_provisions(content.decode("utf-8", errors="ignore")[:200])
+    else:
+        provisions = await parse_policy_pdf(content)
     policy_id = str(uuid.uuid4())
     simulations[policy_id] = {"provisions": provisions, "results": [], "status": "parsed"}
     return {"policy_id": policy_id, "provisions": provisions}
@@ -57,9 +64,16 @@ async def simulate(websocket: WebSocket, policy_id: str):
     try:
         # Phase 1: Stream individual agent results
         all_results = []
-        async for result in stream_agent_results(personas, provisions):
-            all_results.append(result)
-            await websocket.send_json({"type": "agent_result", "data": result})
+        if MOCK_MODE:
+            for persona in personas:
+                result = mock_agent_response(persona)
+                all_results.append(result)
+                await websocket.send_json({"type": "agent_result", "data": result})
+                await asyncio.sleep(0.05)  # simulate network delay
+        else:
+            async for result in stream_agent_results(personas, provisions):
+                all_results.append(result)
+                await websocket.send_json({"type": "agent_result", "data": result})
 
         sim["results"] = all_results
 
