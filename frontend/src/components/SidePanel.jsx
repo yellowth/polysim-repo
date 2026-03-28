@@ -1,9 +1,11 @@
+import { useState } from "react";
 import DemographicBreakdown from "./DemographicBreakdown";
 import AgentVoice from "./AgentVoice";
 import LeverControls from "./LeverControls";
 import VotePrediction from "./VotePrediction";
 import LiveMarketChart from "./LiveMarketChart";
 import AgentStreamFeed from "./AgentStreamFeed";
+import AgentDiscourse from "./AgentDiscourse";
 import {
   Radio,
   Search,
@@ -11,6 +13,8 @@ import {
   Loader2,
   TrendingUp,
   Bot,
+  MessageCircle,
+  Users,
 } from "lucide-react";
 
 function PredictionLogLine({ entry }) {
@@ -56,12 +60,35 @@ function PredictionLogLine({ entry }) {
     );
   }
 
+  if (entry.type === "discourse_start") {
+    return (
+      <div className="flex gap-2 text-xs items-start">
+        <MessageCircle className="w-3.5 h-3.5 text-violet-400 shrink-0 mt-0.5" />
+        <span className="text-violet-300">
+          Discourse phase started — agents communicating over {entry.data?.total_rounds || 3} rounds.
+        </span>
+      </div>
+    );
+  }
+
+  if (entry.type === "discourse_round_start") {
+    return (
+      <div className="flex gap-2 text-xs items-start">
+        <MessageCircle className="w-3.5 h-3.5 text-violet-400 shrink-0 mt-0.5 animate-pulse" />
+        <span className="text-violet-300">
+          Discourse round {entry.round + 1} — agents posting, replying, and shifting positions…
+        </span>
+      </div>
+    );
+  }
+
   if (entry.type === "contagion_round") {
     return (
       <div className="flex gap-2 text-xs items-start">
         <Loader2 className="w-3.5 h-3.5 text-sky-400 shrink-0 mt-0.5" />
         <span className="text-sky-300">
-          Market round {entry.round + 1} cleared at {((entry.market?.market_price || 0) * 100).toFixed(1)}%.
+          Market round {entry.round + 1} cleared at {((entry.market?.market_price || 0) * 100).toFixed(1)}%
+          {entry.market?.discourse_stats ? ` (${entry.market.discourse_stats.messages_this_round} messages)` : ""}.
         </span>
       </div>
     );
@@ -86,16 +113,17 @@ export default function SidePanel({
   provisions, scenarioFrame, selectedGrc, grcSentiment,
   votePrediction, marketPrice, priceHistory, liveSentiment,
   onLeverChange, className,
-  // new props
   chartData, agentHistory, status, agentCount, totalAgents, contagionRound, predictionLog,
+  discourseMessages, discourseRound,
 }) {
   const grcData = selectedGrc ? grcSentiment[selectedGrc] : null;
+  const [feedTab, setFeedTab] = useState("agents"); // agents | discourse
 
   return (
     <div className={`${className} flex flex-col border-l border-slate-800 overflow-hidden`}>
 
-      {/* ── Live Market Chart (top ~38%) ─────────────────────────── */}
-      <div className="shrink-0" style={{ height: "38%" }}>
+      {/* ── Live Market Chart (top ~35%) ─────────────────────────── */}
+      <div className="shrink-0" style={{ height: "35%" }}>
         <LiveMarketChart
           chartData={chartData}
           marketPrice={marketPrice}
@@ -104,14 +132,51 @@ export default function SidePanel({
         />
       </div>
 
-      {/* ── Agent Stream Feed (middle ~30%) ───────────────────────── */}
-      <div className="shrink-0" style={{ height: "30%" }}>
-        <AgentStreamFeed
-          agentHistory={agentHistory}
-          status={status}
-          agentCount={agentCount}
-          totalAgents={totalAgents}
-        />
+      {/* ── Tabbed feed: Agent Stream / Agent Discourse (middle ~35%) ── */}
+      <div className="shrink-0 flex flex-col" style={{ height: "35%" }}>
+        {/* Tab bar */}
+        <div className="flex border-b border-slate-800/70 shrink-0">
+          <button
+            onClick={() => setFeedTab("agents")}
+            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest transition-colors ${
+              feedTab === "agents"
+                ? "text-emerald-400 border-b-2 border-emerald-500 bg-slate-900/50"
+                : "text-slate-600 hover:text-slate-400"
+            }`}
+          >
+            <Users className="w-3 h-3" />
+            Agents ({agentCount})
+          </button>
+          <button
+            onClick={() => setFeedTab("discourse")}
+            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest transition-colors ${
+              feedTab === "discourse"
+                ? "text-violet-400 border-b-2 border-violet-500 bg-slate-900/50"
+                : "text-slate-600 hover:text-slate-400"
+            }`}
+          >
+            <MessageCircle className="w-3 h-3" />
+            Discourse ({discourseMessages?.length || 0})
+          </button>
+        </div>
+
+        {/* Tab content */}
+        <div className="flex-1 overflow-hidden">
+          {feedTab === "agents" ? (
+            <AgentStreamFeed
+              agentHistory={agentHistory}
+              status={status}
+              agentCount={agentCount}
+              totalAgents={totalAgents}
+            />
+          ) : (
+            <AgentDiscourse
+              discourseMessages={discourseMessages || []}
+              discourseRound={discourseRound ?? -1}
+              status={status}
+            />
+          )}
+        </div>
       </div>
 
       {/* ── Scrollable details (bottom ~32%) ─────────────────────── */}
