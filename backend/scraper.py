@@ -9,7 +9,7 @@ TINYFISH_API_KEY = os.getenv("TINYFISH_API_KEY", "")
 TINYFISH_BASE_URL = os.getenv("TINYFISH_BASE_URL", "https://agent.tinyfish.io")
 
 
-async def tinyfish_run(url: str, goal: str, browser_profile: str = "lite") -> dict:
+async def tinyfish_run(url: str, goal: str, browser_profile: str = "lite", timeout: float = 90.0) -> dict:
     """
     Execute a TinyFish synchronous run.
     Returns the run result or a fallback dict on error.
@@ -30,7 +30,7 @@ async def tinyfish_run(url: str, goal: str, browser_profile: str = "lite") -> di
                     "goal": goal,
                     "browser_profile": browser_profile,
                 },
-                timeout=60.0  # TinyFish runs can take up to 5 min, but most are <30s
+                timeout=timeout
             )
             if response.status_code == 200:
                 data = response.json()
