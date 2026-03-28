@@ -2,8 +2,9 @@ import DemographicBreakdown from "./DemographicBreakdown";
 import AgentVoice from "./AgentVoice";
 import LeverControls from "./LeverControls";
 import VotePrediction from "./VotePrediction";
+import { TrendingUp, Radio } from "lucide-react";
 
-export default function SidePanel({ provisions, selectedGrc, grcSentiment, votePrediction, onLeverChange, className }) {
+export default function SidePanel({ provisions, selectedGrc, grcSentiment, votePrediction, marketPrice, priceHistory, liveSentiment, onLeverChange, className }) {
   const grcData = selectedGrc ? grcSentiment[selectedGrc] : null;
 
   return (
@@ -26,6 +27,47 @@ export default function SidePanel({ provisions, selectedGrc, grcSentiment, voteP
         </div>
       </div>
 
+      {/* Live Sentiment (from TinyFish) */}
+      {liveSentiment && (
+        <div className="bg-slate-900 rounded-xl p-3 border border-amber-500/20">
+          <h3 className="text-xs font-semibold text-amber-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <Radio className="w-3.5 h-3.5" /> Live Sentiment
+          </h3>
+          <div className="text-xs text-slate-400">
+            {liveSentiment.sources_scraped} sources scraped
+            <span className={`ml-2 font-mono ${liveSentiment.price_adjustment > 0 ? "text-emerald-400" : "text-red-400"}`}>
+              {liveSentiment.price_adjustment > 0 ? "+" : ""}{(liveSentiment.price_adjustment * 100).toFixed(1)}%
+            </span>
+          </div>
+          {liveSentiment.sentiments?.slice(0, 3).map((s, i) => (
+            <div key={i} className="mt-1.5 text-xs text-slate-500 truncate">
+              <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 ${
+                s.sentiment === "positive" ? "bg-emerald-500" :
+                s.sentiment === "negative" ? "bg-red-500" : "bg-amber-500"
+              }`} />
+              [{s.source}] {s.text}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Market Price Overview */}
+      {marketPrice && !votePrediction && (
+        <div className="bg-slate-900 rounded-xl p-3 border border-slate-700">
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <TrendingUp className="w-3.5 h-3.5" /> Market Price
+          </h3>
+          <div className="text-center">
+            <span className={`text-2xl font-bold font-mono ${
+              marketPrice.market_price > 0.5 ? "text-emerald-400" : "text-red-400"
+            }`}>
+              {marketPrice.implied_probability_pct}%
+            </span>
+            <div className="text-xs text-slate-500 mt-1">{marketPrice.confidence_level} confidence</div>
+          </div>
+        </div>
+      )}
+
       {/* Selected GRC Detail */}
       {grcData && (
         <>
@@ -33,6 +75,11 @@ export default function SidePanel({ provisions, selectedGrc, grcSentiment, voteP
             <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
               {selectedGrc}
             </h3>
+            {grcData.market_price != null && (
+              <div className="text-xs text-slate-400 mb-2">
+                GRC market price: <span className="text-emerald-400 font-mono">{(grcData.market_price * 100).toFixed(1)}%</span>
+              </div>
+            )}
             <DemographicBreakdown data={grcData} />
           </div>
           <AgentVoice agents={grcData.agents || []} />

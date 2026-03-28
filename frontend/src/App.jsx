@@ -45,9 +45,11 @@ export default function App() {
           <SimulationProgress
             status={sim.status}
             agentCount={sim.agentCount}
+            totalAgents={sim.totalAgents}
             contagionRound={sim.contagionRound}
             onSimulate={handleSimulate}
             latestAgent={sim.latestAgent}
+            marketPrice={sim.marketPrice}
           />
           <main className="flex-1 flex overflow-hidden">
             <MapView
@@ -61,6 +63,9 @@ export default function App() {
               selectedGrc={selectedGrc}
               grcSentiment={sim.grcSentiment}
               votePrediction={sim.votePrediction}
+              marketPrice={sim.marketPrice}
+              priceHistory={sim.priceHistory}
+              liveSentiment={sim.liveSentiment}
               onLeverChange={handleLeverChange}
               className="w-1/3"
             />
