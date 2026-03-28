@@ -29,7 +29,7 @@ def _compute_risk_appetite(age: str, income_tier: str, housing: str) -> float:
     return round(0.40 * age_r + 0.35 * inc_r + 0.25 * hou_r, 3)
 
 
-def build_personas(target_count: int = 100) -> list[dict]:
+def build_personas(target_count: int = 100, config: dict = None) -> list[dict]:
     """
     Build representative agent personas weighted to real demographics.
 
@@ -39,8 +39,9 @@ def build_personas(target_count: int = 100) -> list[dict]:
 
     Args:
         target_count: target number of personas (scales up for more fidelity)
+        config: optional config override (from config_generator); falls back to get_config()
     """
-    cfg = get_config()
+    cfg = config or get_config()
     grcs = load_grc_profiles()
     if not grcs:
         return []
@@ -63,8 +64,16 @@ def build_personas(target_count: int = 100) -> list[dict]:
         # How many personas this GRC should contribute (proportional to population)
         grc_budget = max(1, round(target_count * grc_pop / total_pop)) if total_pop > 0 else 1
 
+        # Custom segments (from config_generator) use equal distribution since GRC
+        # profiles don't have per-segment census data for non-standard groupings.
+        custom_segments = cfg.get("_custom_segments", False)
+        segment_weights = cfg.get("_risk_by_segment", {})
+
         for race in races:
-            race_pct = profile.get(race.lower(), 0.03)
+            if custom_segments:
+                race_pct = 1.0 / len(races)  # equal share per segment
+            else:
+                race_pct = profile.get(race.lower(), 0.03)
             if race_pct < 0.02:
                 continue  # skip negligible segments
 
@@ -108,8 +117,11 @@ def build_personas(target_count: int = 100) -> list[dict]:
                     # Population weight for this persona
                     weight = round(grc_pop * race_pct * age_w / max(n_personas, 1))
 
-                    # Risk appetite for prediction market model
-                    risk_appetite = _compute_risk_appetite(age, chosen_tier, chosen_housing)
+                    # Risk appetite — use segment-specific value for custom segments
+                    if custom_segments and race in segment_weights:
+                        risk_appetite = segment_weights[race]
+                    else:
+                        risk_appetite = _compute_risk_appetite(age, chosen_tier, chosen_housing)
 
                     # Pick 3 concerns for this race
                     race_concerns = concerns.get(race, ["cost of living"])
