@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from policy_parser import parse_policy_pdf
+from policy_parser import parse_policy_pdf, parse_policy_text
 from agent_engine import run_simulation, stream_agent_results
 from contagion_v2 import propagate_sentiment_v2 as propagate_sentiment, propagate_sentiment_v2
 from demographics import build_personas, load_grc_profiles
@@ -32,12 +32,36 @@ async def health():
 
 @app.post("/api/upload")
 async def upload_policy(file: UploadFile = File(...)):
-    """Parse uploaded PDF into structured provisions."""
+    """Parse uploaded PDF or text file into structured provisions."""
     content = await file.read()
+    filename = file.filename or ""
+
     if MOCK_MODE:
         provisions = mock_parse_provisions(content.decode("utf-8", errors="ignore")[:200])
-    else:
+    elif filename.endswith(".pdf"):
         provisions = await parse_policy_pdf(content)
+    else:
+        # Treat as plaintext (.txt, .md, or any non-PDF)
+        text = content.decode("utf-8", errors="ignore")
+        provisions = await parse_policy_text(text)
+
+    policy_id = str(uuid.uuid4())
+    simulations[policy_id] = {"provisions": provisions, "results": [], "status": "parsed"}
+    return {"policy_id": policy_id, "provisions": provisions}
+
+
+@app.post("/api/upload-text")
+async def upload_policy_text(body: dict):
+    """Parse raw policy text (no file upload needed). Send {"text": "your policy here"}."""
+    text = body.get("text", "")
+    if not text:
+        return {"error": "No text provided"}
+
+    if MOCK_MODE:
+        provisions = mock_parse_provisions(text[:200])
+    else:
+        provisions = await parse_policy_text(text)
+
     policy_id = str(uuid.uuid4())
     simulations[policy_id] = {"provisions": provisions, "results": [], "status": "parsed"}
     return {"policy_id": policy_id, "provisions": provisions}

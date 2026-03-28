@@ -6,7 +6,12 @@ export default function PolicyUpload({ onUpload }) {
   const [uploading, setUploading] = useState(false);
 
   const handleFile = async (file) => {
-    if (!file || !file.name.endsWith(".pdf")) return;
+    if (!file) return;
+    const ext = file.name.split(".").pop().toLowerCase();
+    if (!["pdf", "txt", "md", "text"].includes(ext)) {
+      alert("Please upload a PDF, TXT, or MD file");
+      return;
+    }
     setUploading(true);
     await onUpload(file);
     setUploading(false);
@@ -29,11 +34,11 @@ export default function PolicyUpload({ onUpload }) {
         ) : (
           <>
             <Upload className="w-12 h-12 mx-auto mb-4 text-slate-500" />
-            <p className="text-lg text-slate-300 mb-2">Drop a policy PDF here</p>
-            <p className="text-sm text-slate-500 mb-6">or click to browse</p>
+            <p className="text-lg text-slate-300 mb-2">Drop a policy document here</p>
+            <p className="text-sm text-slate-500 mb-6">PDF, TXT, or Markdown</p>
             <input
               type="file"
-              accept=".pdf"
+              accept=".pdf,.txt,.md,.text"
               className="hidden"
               id="file-input"
               onChange={(e) => handleFile(e.target.files[0])}

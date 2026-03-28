@@ -36,3 +36,21 @@ Extract 3-8 key provisions. Be specific about numbers, thresholds, amounts."""},
     )
     result = json.loads(response.choices[0].message.content)
     return result.get("provisions", [])
+
+
+async def parse_policy_text(text: str) -> list[dict]:
+    """Parse raw policy text (no PDF extraction needed)."""
+    response = await _get_client().chat.completions.create(
+        model="gpt-4o",
+        response_format={"type": "json_object"},
+        messages=[
+            {"role": "system", "content": """Extract the key policy provisions from this text.
+Return JSON: {"provisions": [{"id": 1, "title": "...", "summary": "...", "affected_groups": ["..."], "parameters": {"key": "value"}}]}
+Focus on provisions that would affect Singapore residents differently based on income, age, race, housing type.
+Extract 3-8 key provisions. Be specific about numbers, thresholds, amounts."""},
+            {"role": "user", "content": text[:8000]}
+        ],
+        max_tokens=2000
+    )
+    result = json.loads(response.choices[0].message.content)
+    return result.get("provisions", [])
