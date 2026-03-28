@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-echo "🐟 Starting Polisim..."
+echo "🐟 Starting Polysim..."
 
 # Check for .env
 if [ ! -f .env ]; then
