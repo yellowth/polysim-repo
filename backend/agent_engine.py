@@ -1,7 +1,14 @@
 import asyncio, json
 from openai import AsyncOpenAI
 
-client = AsyncOpenAI()
+client = None
+
+
+def _get_client():
+    global client
+    if client is None:
+        client = AsyncOpenAI()
+    return client
 
 AGENT_SYSTEM_PROMPT = """You are simulating a Singapore resident evaluating a government policy.
 
@@ -33,7 +40,7 @@ async def simulate_agent(persona: dict, provisions: list[dict]) -> dict:
         f"{p['id']}. {p['title']}: {p['summary']}" for p in provisions
     )
     try:
-        response = await client.chat.completions.create(
+        response = await _get_client().chat.completions.create(
             model="gpt-4o",
             response_format={"type": "json_object"},
             messages=[

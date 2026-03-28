@@ -1,8 +1,16 @@
+import os
 import pdfplumber
 import io, json
 from openai import AsyncOpenAI
 
-client = AsyncOpenAI()
+client = None
+
+
+def _get_client():
+    global client
+    if client is None:
+        client = AsyncOpenAI()
+    return client
 
 
 async def parse_policy_pdf(pdf_bytes: bytes) -> list[dict]:
@@ -14,7 +22,7 @@ async def parse_policy_pdf(pdf_bytes: bytes) -> list[dict]:
             text += (page.extract_text() or "") + "\n"
 
     # Use OpenAI to extract structured provisions
-    response = await client.chat.completions.create(
+    response = await _get_client().chat.completions.create(
         model="gpt-4o",
         response_format={"type": "json_object"},
         messages=[
