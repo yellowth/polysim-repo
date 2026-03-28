@@ -15,6 +15,7 @@ import {
   Bot,
   MessageCircle,
   Users,
+  ChevronRight,
 } from "lucide-react";
 
 function PredictionLogLine({ entry }) {
