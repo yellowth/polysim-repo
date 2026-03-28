@@ -15,6 +15,9 @@ export default function useSimulation() {
   const [agentHistory, setAgentHistory] = useState([]);
   const [chartData, setChartData] = useState([]);
   const [predictionLog, setPredictionLog] = useState([]);
+  // Discourse state
+  const [discourseMessages, setDiscourseMessages] = useState([]);
+  const [discourseRound, setDiscourseRound] = useState(-1);
   const wsRef = useRef(null);
 
   // Running bet totals for live price estimate during agent evaluation
@@ -37,6 +40,8 @@ export default function useSimulation() {
     setAgentHistory([]);
     setChartData([]);
     setPredictionLog([]);
+    setDiscourseMessages([]);
+    setDiscourseRound(-1);
     yesBetsRef.current = 0;
     noBetsRef.current = 0;
     agentCountRef.current = 0;
@@ -132,6 +137,36 @@ export default function useSimulation() {
         ]);
       }
 
+      if (msg.type === "discourse_start") {
+        setPredictionLog((prev) => [
+          ...prev,
+          { type: "discourse_start", data: msg.data },
+        ]);
+      }
+
+      if (msg.type === "discourse_round_start") {
+        setDiscourseRound(msg.round);
+        setPredictionLog((prev) => [
+          ...prev,
+          { type: "discourse_round_start", round: msg.round },
+        ]);
+      }
+
+      if (msg.type === "discourse_message") {
+        setDiscourseMessages((prev) => [msg.data, ...prev]);
+      }
+
+      if (msg.type === "discourse_debug") {
+        const d = msg.data || {};
+        const log =
+          d.phase === "discourse_error" ? console.error.bind(console) : console.info.bind(console);
+        log("[polysim:discourse]", d.phase, d.message, d);
+      }
+
+      if (msg.type === "error" && msg.phase === "simulate") {
+        console.error("[polysim:simulate error]", msg.message, msg.detail || "");
+      }
+
       if (msg.type === "contagion_round") {
         setContagionRound(msg.round);
         setGrcSentiment(msg.data);
@@ -189,6 +224,7 @@ export default function useSimulation() {
     status, grcSentiment, agentCount, totalAgents, contagionRound,
     votePrediction, latestAgent, marketPrice, priceHistory, liveSentiment,
     agentHistory, chartData, predictionLog,
+    discourseMessages, discourseRound,
     connect,
   };
 }

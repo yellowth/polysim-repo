@@ -2,6 +2,8 @@ import os
 import json
 import uuid
 import asyncio
+import traceback
+import logging
 from fastapi import FastAPI, UploadFile, File, WebSocket, WebSocketDisconnect, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -12,6 +14,8 @@ load_dotenv()
 from policy_parser import parse_policy_pdf, parse_policy_text
 from agent_engine import run_simulation, stream_agent_results
 from contagion_v2 import propagate_sentiment_v2
+from discourse_engine import run_discourse_round
+from discourse_debug import emit_debug, discourse_debug_enabled, dlog_exception
 from demographics import build_personas, load_grc_profiles
 from levers import apply_lever, LEVER_DEFINITIONS
 from mock_mode import mock_parse_provisions, mock_agent_response
@@ -35,6 +39,17 @@ simulations = {}
 
 # Default agent count — configurable via query param
 DEFAULT_AGENT_COUNT = 200
+
+# Progress logs to the uvicorn terminal (always INFO; set LOG_LEVEL=WARNING to quiet)
+_log_level = os.getenv("LOG_LEVEL", "INFO").strip().upper()
+_polysim_log = logging.getLogger("polysim")
+_polysim_log.setLevel(getattr(logging, _log_level, logging.INFO))
+if not _polysim_log.handlers:
+    _h = logging.StreamHandler()
+    _h.setFormatter(logging.Formatter("[polysim] %(message)s"))
+    _polysim_log.addHandler(_h)
+    _polysim_log.propagate = False
+sim_log = logging.getLogger("polysim.simulate")
 
 
 @app.get("/api/health")
@@ -344,6 +359,12 @@ async def simulate(websocket: WebSocket, policy_id: str):
     total_agents = len(personas)
 
     try:
+        sim_log.info(
+            "WS /ws/simulate policy_id=%s agents=%s mock_mode=%s (set DISCOURSE_DEBUG=1 for discourse file logs)",
+            policy_id[:8],
+            total_agents,
+            MOCK_MODE,
+        )
         # Send config info
         await websocket.send_json({
             "type": "config",
@@ -352,14 +373,22 @@ async def simulate(websocket: WebSocket, policy_id: str):
 
         # Phase 1: Stream individual agent results
         all_results = []
+        _agent_i = 0
         if MOCK_MODE:
+            sim_log.info("Phase 1: agent evaluation (mock, fast)")
             for persona in personas:
                 result = mock_agent_response(persona)
                 compute_agent_bet(result)
                 all_results.append(result)
                 await websocket.send_json({"type": "agent_result", "data": result})
+                _agent_i += 1
+                if _agent_i == 1 or _agent_i % 25 == 0 or _agent_i == total_agents:
+                    sim_log.info("  agents %s/%s done", _agent_i, total_agents)
                 await asyncio.sleep(0.03)
         else:
+            sim_log.info(
+                "Phase 1: agent evaluation (live LLM — no logs until batches complete; this can take several minutes)"
+            )
             async for result in stream_agent_results(
                 personas, provisions,
                 scenario_frame=scenario_frame,
@@ -368,8 +397,12 @@ async def simulate(websocket: WebSocket, policy_id: str):
                 compute_agent_bet(result)
                 all_results.append(result)
                 await websocket.send_json({"type": "agent_result", "data": result})
+                _agent_i += 1
+                if _agent_i == 1 or _agent_i % 25 == 0 or _agent_i == total_agents:
+                    sim_log.info("  agents %s/%s done", _agent_i, total_agents)
 
         sim["results"] = all_results
+        sim_log.info("Phase 1 complete: %s agents", len(all_results))
 
         # Compute initial market price (pre-contagion)
         initial_market = compute_market_price(all_results)
@@ -378,12 +411,17 @@ async def simulate(websocket: WebSocket, policy_id: str):
             "round": 0,
             "data": initial_market,
         })
+        sim_log.info(
+            "Initial market_price=%.4f (next: optional TinyFish scrape, then discourse)",
+            initial_market.get("market_price", 0),
+        )
 
         # Phase 1.5: TinyFish live sentiment adjustment (if available)
         live_adjustment = 0.0
         if not MOCK_MODE:
             try:
                 policy_topic = provisions[0]["title"] if provisions else "government policy"
+                sim_log.info("TinyFish live sentiment scrape starting topic=%r ...", policy_topic[:80])
                 live_sentiments = await scrape_sg_sentiment(policy_topic)
                 if live_sentiments:
                     adjusted_price = adjust_with_live_sentiment(
@@ -399,20 +437,92 @@ async def simulate(websocket: WebSocket, policy_id: str):
                             "sentiments": live_sentiments[:5],  # send top 5
                         }
                     })
-            except Exception:
-                pass  # TinyFish is optional
+                    sim_log.info("TinyFish: %s sources, price delta=%.4f", len(live_sentiments), live_adjustment)
+                else:
+                    sim_log.info("TinyFish: no sentiments returned (skipping live adjustment)")
+            except Exception as e:
+                sim_log.info("TinyFish scrape skipped or failed: %s", e)
 
-        # Phase 2: Contagion / market rounds (3 rounds)
+        # Phase 2: Discourse rounds — agents communicate and influence each other
         price_history = [{"round": 0, "market_price": initial_market["market_price"]}]
+        discourse_messages = []  # shared message pool across rounds
+        discourse_rounds = 3
 
-        for round_num in range(3):
+        await websocket.send_json({
+            "type": "discourse_start",
+            "data": {"total_rounds": discourse_rounds},
+        })
+        sim_log.info(
+            "Phase 2: discourse %s rounds (messages will stream to UI; backend: DISCOURSE_DEBUG=1 or %s)",
+            discourse_rounds,
+            "backend/logs/discourse_debug.log",
+        )
+        await emit_debug(
+            websocket,
+            "discourse",
+            "discourse_start sent; entering discourse rounds",
+            {
+                "total_agents": len(all_results),
+                "mock_mode": MOCK_MODE,
+                "discourse_debug": discourse_debug_enabled(),
+            },
+        )
+
+        for round_num in range(discourse_rounds):
+            sim_log.info("Discourse round %s/%s starting ...", round_num + 1, discourse_rounds)
+            await websocket.send_json({
+                "type": "discourse_round_start",
+                "round": round_num,
+            })
+            await emit_debug(
+                websocket,
+                "discourse",
+                f"round {round_num + 1}/{discourse_rounds} starting",
+                {"messages_in_pool_before": len(discourse_messages)},
+            )
+
+            try:
+                async for event_type, event_data in run_discourse_round(
+                    all_results, discourse_messages, round_num,
+                    activity_rate=0.4, use_mock=MOCK_MODE,
+                ):
+                    await websocket.send_json({
+                        "type": event_type,
+                        "data": event_data,
+                    })
+            except Exception as e:
+                traceback.print_exc()
+                dlog_exception(f"run_discourse_round failed at round={round_num}", e)
+                await emit_debug(
+                    websocket,
+                    "discourse_error",
+                    str(e),
+                    {"round": round_num, "traceback": traceback.format_exc()},
+                )
+                raise
+
+            await emit_debug(
+                websocket,
+                "discourse",
+                f"round {round_num + 1} generator finished",
+                {"messages_in_pool_after": len(discourse_messages)},
+            )
+            _round_msgs = len([m for m in discourse_messages if m.get("round") == round_num])
+            sim_log.info(
+                "Discourse round %s/%s done: %s messages this round, %s total in pool",
+                round_num + 1,
+                discourse_rounds,
+                _round_msgs,
+                len(discourse_messages),
+            )
+
+            # After discourse, also run group-mean contagion for agents who lurked
             all_results = propagate_sentiment_v2(all_results, round_num)
             grc_agg = aggregate_by_grc(all_results)
             round_market = compute_market_price(all_results)
 
-            # Apply live sentiment adjustment if we got one
             if live_adjustment != 0:
-                decay = 0.7 ** (round_num + 1)  # live signal decays over rounds
+                decay = 0.7 ** (round_num + 1)
                 round_market["market_price"] = min(0.99, max(0.01,
                     round_market["market_price"] + live_adjustment * decay
                 ))
@@ -423,15 +533,26 @@ async def simulate(websocket: WebSocket, policy_id: str):
                 "market_price": round_market["market_price"],
             })
 
+            # Compute influence summary for this round
+            shift_counts = {"more_supportive": 0, "more_opposed": 0, "unchanged": 0, "less_certain": 0}
+            round_msgs = [m for m in discourse_messages if m.get("round") == round_num]
+            for m in round_msgs:
+                pass  # shifts tracked in discourse_message events
+
             await websocket.send_json({
                 "type": "contagion_round",
                 "round": round_num,
                 "data": grc_agg,
                 "market": round_market,
+                "discourse_stats": {
+                    "messages_this_round": len(round_msgs),
+                    "total_messages": len(discourse_messages),
+                },
             })
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(0.3)
 
         # Phase 3: Final market prediction
+        sim_log.info("Phase 3: final vote + market")
         final_market = compute_market_price(all_results)
         vote = compute_vote_prediction(all_results)
 
@@ -444,9 +565,28 @@ async def simulate(websocket: WebSocket, policy_id: str):
             }
         })
         await websocket.send_json({"type": "complete"})
+        sim_log.info(
+            "Simulation complete call=%s for_pct=%s",
+            vote.get("call"),
+            vote.get("for_pct"),
+        )
+        await emit_debug(websocket, "discourse", "simulation complete", {})
 
     except WebSocketDisconnect:
-        pass
+        sim_log.info("WebSocket disconnected policy_id=%s", policy_id[:8])
+    except Exception as e:
+        traceback.print_exc()
+        dlog_exception("simulate pipeline error", e)
+        try:
+            await websocket.send_json({
+                "type": "error",
+                "message": str(e),
+                "phase": "simulate",
+                "detail": traceback.format_exc()[-6000:] if discourse_debug_enabled() else None,
+            })
+        except Exception:
+            pass
+        raise
 
 
 @app.post("/api/adjust/{policy_id}")
