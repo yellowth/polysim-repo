@@ -66,15 +66,20 @@ function LogLine({ entry }) {
 
   if (entry.type === "narrate") return (
     <div className="flex gap-2 text-xs items-start ml-5">
-      <Zap className="w-3 h-3 text-sky-400 shrink-0 mt-0.5" />
-      <span className="text-sky-300 italic">{entry.text}</span>
+      {entry.is_error
+        ? <AlertCircle className="w-3 h-3 text-red-400 shrink-0 mt-0.5" />
+        : <Zap className="w-3 h-3 text-sky-400 shrink-0 mt-0.5" />}
+      <span className={entry.is_error ? "text-red-400" : "text-sky-300 italic"}>{entry.text}</span>
     </div>
   );
 
   if (entry.type === "synthesis_start") return (
     <div className="flex gap-2 text-xs items-center">
       <Loader2 className="w-3.5 h-3.5 text-purple-400 animate-spin shrink-0" />
-      <span className="text-purple-300">Synthesising research into segment config…</span>
+      <span className="text-purple-300">
+        Synthesising{entry.live_results > 0 ? ` ${entry.live_results} live result${entry.live_results > 1 ? "s" : ""}` : " (no live data — using GPT-4o knowledge)"}…
+        {entry.failed > 0 && <span className="text-red-400 ml-1">{entry.failed} search{entry.failed > 1 ? "es" : ""} failed.</span>}
+      </span>
     </div>
   );
 
@@ -145,8 +150,8 @@ export default function RegionConfigPanel({ onApply, onSkip }) {
   const totalWeight = segmentsMeta.reduce((s, seg) => s + (seg.weight || 0), 0);
 
   return (
-    <div className="flex-1 flex items-center justify-center p-8 overflow-y-auto">
-      <div className="max-w-2xl w-full space-y-4">
+    <div className="flex-1 overflow-y-auto">
+      <div className="max-w-2xl w-full mx-auto space-y-4 px-8 py-8">
 
         {/* Header */}
         <div>
@@ -193,7 +198,7 @@ export default function RegionConfigPanel({ onApply, onSkip }) {
 
         {/* Live research console */}
         {log.length > 0 && (
-          <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-2 font-mono max-h-64 overflow-y-auto">
+          <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-2 font-mono">
             <p className="text-xs text-slate-600 mb-2 font-sans">Research console</p>
             {log.map((entry, i) => <LogLine key={i} entry={entry} />)}
             {busy && (

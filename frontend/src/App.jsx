@@ -11,8 +11,6 @@ import useSimulation from "./hooks/useSimulation";
 //   "config"   — Stage A: optional region/segment config (RegionConfigPanel)
 //   "input"    — Stage B: scenario/policy input (ScenarioInput)
 //   "simulate" — simulation running/complete view
-const STEPS = ["config", "input", "simulate"];
-
 export default function App() {
   const [step, setStep] = useState("config");
   const [policyId, setPolicyId] = useState(null);
@@ -54,7 +52,6 @@ export default function App() {
   };
 
   // ── Stage B: NL scenario interpreted ────────────────────────────────────────
-  // `response` is the full /api/interpret-scenario response: { policy_id, provisions, frame }
   const handleScenario = async (response) => {
     const pid = response.policy_id;
     if (!pid) return;
@@ -102,6 +99,13 @@ export default function App() {
 
   return (
     <div className="h-screen flex flex-col bg-slate-950 text-slate-100">
+      <style>{`
+        @keyframes slideIn {
+          from { opacity: 0; transform: translateY(-6px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+
       <Header onReset={step === "simulate" ? handleReset : undefined} />
 
       {step === "config" && (
@@ -128,17 +132,18 @@ export default function App() {
             totalAgents={sim.totalAgents}
             contagionRound={sim.contagionRound}
             onSimulate={handleSimulate}
-            latestAgent={sim.latestAgent}
             marketPrice={sim.marketPrice}
             scenarioTitle={scenarioFrame?.title}
           />
           <main className="flex-1 flex overflow-hidden">
+            {/* Left: Map */}
             <MapView
               grcSentiment={sim.grcSentiment}
               selectedGrc={selectedGrc}
               onSelectGrc={setSelectedGrc}
-              className="w-2/3"
+              className="w-[57%]"
             />
+            {/* Right: Market Chart + Stream + Details */}
             <SidePanel
               provisions={provisions}
               scenarioFrame={scenarioFrame}
@@ -149,7 +154,13 @@ export default function App() {
               priceHistory={sim.priceHistory}
               liveSentiment={sim.liveSentiment}
               onLeverChange={handleLeverChange}
-              className="w-1/3"
+              className="w-[43%]"
+              chartData={sim.chartData}
+              agentHistory={sim.agentHistory}
+              status={sim.status}
+              agentCount={sim.agentCount}
+              totalAgents={sim.totalAgents}
+              contagionRound={sim.contagionRound}
             />
           </main>
         </>

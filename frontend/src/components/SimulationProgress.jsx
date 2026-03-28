@@ -1,90 +1,122 @@
-import { Play, Loader2, CheckCircle2, Users, Zap, TrendingUp } from "lucide-react";
+import { Play, Loader2, CheckCircle2, Zap } from "lucide-react";
 
-export default function SimulationProgress({ status, agentCount, totalAgents, contagionRound, onSimulate, latestAgent, marketPrice }) {
+export default function SimulationProgress({
+  status, agentCount, totalAgents, contagionRound,
+  onSimulate, marketPrice, scenarioTitle,
+}) {
   const total = totalAgents || 100;
+  const pct = total > 0 ? Math.min(100, (agentCount / total) * 100) : 0;
+
+  const phaseLabel = (() => {
+    if (status === "idle") return null;
+    if (status === "connecting") return "Connecting…";
+    if (status === "complete") return "Complete";
+    if (contagionRound >= 0) return `Contagion round ${contagionRound + 1}/3 — social cascade propagating`;
+    return `Evaluating agents — ${agentCount}/${total}`;
+  })();
 
   return (
-    <div className="px-6 py-2 border-b border-slate-800 bg-slate-900/50">
-      <div className="flex items-center gap-4">
+    <div className="shrink-0 bg-slate-900/60 border-b border-slate-800 backdrop-blur-sm">
+      {/* Main row */}
+      <div className="flex items-center gap-4 px-5 py-2.5">
+
+        {/* Left: action / status */}
         {status === "idle" && (
           <button
             onClick={onSimulate}
-            className="flex items-center gap-2 px-4 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-medium rounded-lg text-sm transition-colors"
+            className="flex items-center gap-2 px-4 py-1.5 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-950 font-semibold rounded-lg text-sm transition-colors shadow-lg shadow-emerald-500/20"
           >
-            <Play className="w-4 h-4" /> Run Simulation
+            <Play className="w-4 h-4 fill-current" /> Run Simulation
           </button>
         )}
+
         {status === "connecting" && (
-          <span className="text-sm text-slate-400">Connecting to simulation engine...</span>
+          <div className="flex items-center gap-2 text-sm text-slate-400">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Connecting…
+          </div>
         )}
+
         {status === "simulating" && (
-          <>
-            <Loader2 className="w-4 h-4 animate-spin text-emerald-400 shrink-0" />
+          <div className="flex items-center gap-2">
             {contagionRound >= 0 ? (
-              <div className="flex items-center gap-2">
-                <Zap className="w-3.5 h-3.5 text-amber-400" />
-                <span className="text-sm text-amber-400">
-                  Market round {contagionRound + 1}/3
-                </span>
-                <span className="text-xs text-slate-500">
-                  (information cascading through social networks)
-                </span>
-                {marketPrice && (
-                  <span className="text-xs text-emerald-400 font-mono ml-2">
-                    <TrendingUp className="w-3 h-3 inline mr-1" />
-                    {(marketPrice.market_price * 100).toFixed(1)}%
-                  </span>
-                )}
-              </div>
+              <Zap className="w-4 h-4 text-indigo-400 shrink-0" style={{ animation: "pulse 1s infinite" }} />
             ) : (
-              <div className="flex items-center gap-2 min-w-0">
-                <Users className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span className="text-sm text-slate-300">
-                  Agent <span className="text-emerald-400 font-mono">{agentCount}</span>/{total} evaluated
-                </span>
-                <div className="w-24 h-1.5 bg-slate-800 rounded-full overflow-hidden shrink-0">
-                  <div
-                    className="h-full bg-emerald-500 transition-all duration-300"
-                    style={{ width: `${(agentCount / total) * 100}%` }}
-                  />
-                </div>
-              </div>
+              <Loader2 className="w-4 h-4 animate-spin text-emerald-400 shrink-0" />
             )}
-          </>
+          </div>
         )}
+
         {status === "complete" && (
-          <>
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-            <span className="text-sm text-emerald-400">
-              {agentCount} agents evaluated · Simulation complete
-            </span>
-            {marketPrice && (
-              <span className="text-sm text-slate-400 ml-2">
-                Market price: <span className="text-emerald-400 font-mono">{(marketPrice.market_price * 100).toFixed(1)}%</span>
-              </span>
-            )}
-          </>
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+        )}
+
+        {/* Phase label */}
+        <div className="flex-1 min-w-0">
+          {scenarioTitle && status !== "idle" && (
+            <div className="text-[10px] text-slate-600 truncate mb-0.5">{scenarioTitle}</div>
+          )}
+          {phaseLabel && (
+            <div className={`text-xs font-medium truncate ${
+              status === "complete" ? "text-emerald-400" :
+              contagionRound >= 0 ? "text-indigo-400" :
+              "text-slate-400"
+            }`}>
+              {phaseLabel}
+            </div>
+          )}
+        </div>
+
+        {/* Progress bar (agent phase only) */}
+        {status === "simulating" && contagionRound < 0 && (
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="w-32 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-emerald-500 rounded-full transition-all duration-300"
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+            <span className="text-xs text-slate-500 font-mono w-8 text-right">{Math.round(pct)}%</span>
+          </div>
+        )}
+
+        {/* Contagion dots */}
+        {status === "simulating" && contagionRound >= 0 && (
+          <div className="flex gap-1.5 shrink-0">
+            {[0, 1, 2].map((r) => (
+              <div
+                key={r}
+                className={`w-2 h-2 rounded-full transition-all duration-500 ${
+                  r < contagionRound
+                    ? "bg-indigo-400"
+                    : r === contagionRound
+                    ? "bg-indigo-400 animate-pulse"
+                    : "bg-slate-700"
+                }`}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Final call badge when complete */}
+        {status === "complete" && marketPrice && (
+          <div className={`text-xs font-bold px-3 py-1 rounded-full border shrink-0 ${
+            marketPrice.market_price >= 0.5
+              ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-400"
+              : "bg-red-500/10 border-red-500/40 text-red-400"
+          }`}>
+            {marketPrice.market_price >= 0.5 ? "PASS" : "FAIL"} · {(marketPrice.market_price * 100).toFixed(1)}%
+          </div>
         )}
       </div>
 
-      {/* Live agent feed during simulation */}
-      {status === "simulating" && latestAgent && contagionRound < 0 && (
-        <div className="mt-1.5 flex items-center gap-2 text-xs text-slate-500 overflow-hidden">
-          <span className={`inline-block w-2 h-2 rounded-full shrink-0 ${
-            latestAgent.sentiment === "support" ? "bg-emerald-500" :
-            latestAgent.sentiment === "reject" ? "bg-red-500" : "bg-amber-500"
-          }`} />
-          <span className="text-slate-400 shrink-0">
-            {latestAgent.persona?.race} {latestAgent.persona?.age} · {latestAgent.persona?.grc}
-          </span>
-          {latestAgent.conviction_bet > 0 && (
-            <span className="text-emerald-500/60 shrink-0 font-mono">
-              ${latestAgent.conviction_bet.toFixed(0)} bet
-            </span>
-          )}
-          <span className="truncate italic text-slate-600">
-            &ldquo;{latestAgent.reason?.slice(0, 80)}...&rdquo;
-          </span>
+      {/* Progress stripe (agent phase) */}
+      {status === "simulating" && contagionRound < 0 && (
+        <div className="h-px bg-slate-800 mx-5 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-emerald-500/40 transition-all duration-500"
+            style={{ width: `${pct}%` }}
+          />
         </div>
       )}
     </div>
