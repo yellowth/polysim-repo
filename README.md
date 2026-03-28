@@ -1,7 +1,7 @@
-# 🐟 Polysim — Prediction Market in Silico
+# Polysim — Prediction Market in Silico
 
 > "14 million scenarios, only one you win."
-> Upload a policy → watch a simulated population react in real time.
+> Upload a policy. Watch a simulated population bet on the outcome.
 
 ---
 
@@ -9,319 +9,230 @@
 
 You paste/upload a policy document (like "raise GST to 10%"). Polysim:
 
-1. **Reads it** → GPT-4o extracts the key provisions ("GST increase", "CPF change", etc.)
-2. **Spawns 40 AI agents** → each represents a real demographic slice of Singapore (Chinese nurse in Ang Mo Kio, aged 35; Malay retiree in Jurong, aged 68; etc.)
-3. **Each agent reads the policy and reacts** → "Wah this one help me lah" or "This one don't benefit me at all"
-4. **Social contagion** → agents influence each other (same race/neighborhood/age = stronger ties), sentiment ripples across communities over 3 rounds
-5. **Dashboard shows results** → Singapore map lights up green/amber/red per constituency, agent quotes, vote prediction, demographic breakdown
+1. **Reads it** — GPT-4o extracts key provisions ("GST increase", "CPF change", etc.)
+2. **Spawns 100+ AI agents** — each represents a real demographic slice of Singapore (Chinese nurse in Ang Mo Kio, aged 35; Malay retiree in Jurong, aged 68; Indian PME in Sengkang, aged 28; etc.)
+3. **Each agent reads the policy and bets** — self-interested agents stake virtual tokens on whether the policy helps or hurts them. Risk appetite scales with demographics (young + rich = bolder bets).
+4. **Social contagion / market rounds** — agents influence each other through social networks (same race/neighborhood/age = stronger ties). Information cascades over 3 market rounds, shifting positions.
+5. **Market price emerges** — the clearing price (implied probability) is more reliable than raw polling because it weights conviction and skin-in-the-game.
+6. **Dashboard shows results** — Singapore map lights up by constituency, agent quotes, per-GRC market prices, demographic breakdown, price evolution chart.
 
-It's like running an election before the election happens.
+It's like running a prediction market before anyone places a real bet.
 
 ---
 
-## Architecture (How The Pieces Fit)
+## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    FRONTEND (React + Vite)               │
-│  localhost:3000                                          │
-│                                                          │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌─────────┐ │
-│  │ Policy   │→ │ Map View │  │ Side     │  │ Lever   │ │
-│  │ Upload   │  │ (Leaflet)│  │ Panel    │  │ Controls│ │
-│  └────┬─────┘  └────▲─────┘  └────▲─────┘  └────┬────┘ │
-│       │              │             │              │      │
-│       ▼              └─────────────┘              │      │
-│  useSimulation.js (WebSocket client)              │      │
-└───────┬───────────────────────────────────────────┼──────┘
-        │ HTTP POST /api/upload                     │ POST /api/adjust
-        │ WS /ws/simulate/{id}                      │
-        ▼                                           ▼
-┌─────────────────────────────────────────────────────────┐
-│                    BACKEND (Python FastAPI)               │
-│  localhost:8000                                          │
-│                                                          │
-│  ┌──────────────┐   ┌───────────────┐   ┌─────────────┐ │
-│  │ policy_      │   │ agent_        │   │ contagion   │ │
-│  │ parser.py    │   │ engine.py     │   │ _v2.py      │ │
-│  │ (GPT-4o)     │   │ (40× GPT-4o) │   │ (O(n) fast) │ │
-│  └──────┬───────┘   └──────┬────────┘   └──────┬──────┘ │
-│         │                  │                    │        │
-│         ▼                  ▼                    ▼        │
-│  ┌──────────────┐   ┌───────────────┐   ┌─────────────┐ │
-│  │ demographics │   │ backtest.py   │   │ real_data   │ │
-│  │ .py          │   │ (vs GE2020)   │   │ .py         │ │
-│  └──────────────┘   └───────────────┘   └─────────────┘ │
-│                                                          │
-│  ┌──────────────┐   ┌───────────────┐                    │
-│  │ scraper.py   │   │ levers.py     │                    │
-│  │ (TinyFish)   │   │ (policy       │                    │
-│  │              │   │  adjustments) │                    │
-│  └──────────────┘   └───────────────┘                    │
-└──────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                    FRONTEND (React + Vite)                    │
+│  localhost:3000                                              │
+│                                                              │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌─────────────┐ │
+│  │ Policy   │  │ Map View │  │ Side     │  │ Vote/Market │ │
+│  │ Upload   │  │ (Leaflet)│  │ Panel    │  │ Prediction  │ │
+│  └────┬─────┘  └────▲─────┘  └────▲─────┘  └──────▲──────┘ │
+│       │              │             │                │        │
+│       └──────────────┴─────────────┴────────────────┘        │
+│                  useSimulation.js (WebSocket)                 │
+└───────┬──────────────────────────────────────────────────────┘
+        │ HTTP + WebSocket
+┌───────┴──────────────────────────────────────────────────────┐
+│                    BACKEND (Python FastAPI)                    │
+│  localhost:8000                                              │
+│                                                              │
+│  main.py ─── Orchestrator                                    │
+│  ├── config.py          ← Region config (extensible)         │
+│  ├── policy_parser.py   ← PDF/text → provisions (GPT-4o)    │
+│  ├── demographics.py    ← Build 100+ weighted personas       │
+│  ├── agent_engine.py    ← GPT-4o per persona (with retry)   │
+│  ├── market.py          ← Prediction market model            │
+│  ├── contagion_v2.py    ← O(n) social influence propagation │
+│  ├── mock_mode.py       ← Deterministic offline fallback     │
+│  ├── levers.py          ← Policy parameter adjustments       │
+│  ├── scraper.py         ← TinyFish live sentiment scraping   │
+│  ├── real_data.py       ← Census 2020 + GE2020/2025 data    │
+│  └── backtest.py        ← Validate vs real election results  │
+│                                                              │
+│  External: OpenAI GPT-4o · TinyFish API · pdfplumber        │
+└──────────────────────────────────────────────────────────────┘
         │
-        ▼
-┌──────────────────────┐    ┌──────────────────────────────┐
-│  data/ (local CSVs)  │    │  External APIs               │
-│  • Census 2020       │    │  • OpenAI GPT-4o             │
-│  • GE2020 results    │    │  • TinyFish (web scraping)   │
-│  • GRC boundaries    │    │  • 🔌 MiroFish (plug in here)│
-│  • Income data       │    │                              │
-└──────────────────────┘    └──────────────────────────────┘
+┌───────┴──────────────────────────────────────────────────────┐
+│  data/                                                        │
+│  grc_profiles.json     (31 GRCs/SMCs, GE2025 boundaries)    │
+│  ge_results.csv        (election results 1955–2025)          │
+│  pop_age_sex.csv       (Census 2020 by planning area)        │
+│  pop_ethnicity.csv     (Census 2020 by race)                 │
+│  households_dwelling.csv (housing types by area)             │
+│  income_by_area.csv    (income distribution)                 │
+│  voter_turnout.csv     (turnout 1955–2025)                   │
+│  sg_demographics.json  (national-level Census summary)       │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## File Guide (What's What)
+## File Guide
 
 ```
 polisim-repo/
-├── .env                    ← YOUR API KEYS (never commit this)
+├── .env                    ← YOUR API KEYS (never commit)
 ├── .env.example            ← Template for .env
-├── demo.sh                 ← One-command "start everything"
+├── demo.sh                 ← One-command startup
 │
 ├── backend/
-│   ├── main.py             ← FastAPI server, all routes, WebSocket handler
-│   ├── policy_parser.py    ← PDF/text → structured provisions (GPT-4o)
-│   ├── agent_engine.py     ← Spawn 40 agents, each calls GPT-4o
-│   ├── demographics.py     ← Builds agent personas from SG demographic data
-│   ├── contagion_v2.py     ← Social influence propagation (the "ripple effect")
-│   ├── contagion.py        ← Old v1 (O(n²), kept for reference)
-│   ├── mock_mode.py        ← Fake responses for testing without API keys
-│   ├── levers.py           ← Policy parameter adjustments (sliders)
-│   ├── scraper.py          ← TinyFish integration (live web scraping)
-│   ├── real_data.py        ← Loads Census CSVs, GE results, income data
-│   ├── backtest.py         ← Compare predictions vs actual GE2020 results
-│   └── requirements.txt
+│   ├── main.py             ← FastAPI server, all routes, WebSocket
+│   ├── config.py           ← Region configuration (swap for other geographies)
+│   ├── market.py           ← Prediction market model (bets, clearing price)
+│   ├── policy_parser.py    ← PDF/text → provisions (GPT-4o, retry logic)
+│   ├── agent_engine.py     ← 100+ agents × GPT-4o (risk_appetite, retry)
+│   ├── demographics.py     ← Census-weighted personas (4 ages × 4 races × 4 incomes)
+│   ├── contagion_v2.py     ← Social influence / market rounds (O(n))
+│   ├── mock_mode.py        ← Deterministic fakes (16 demographic combos)
+│   ├── levers.py           ← Policy parameter sliders
+│   ├── scraper.py          ← TinyFish (Reddit, HWZ, CNA scraping)
+│   ├── real_data.py        ← Census CSVs + GE2020/2025 results
+│   └── backtest.py         ← Validate predictions vs real elections
 │
 ├── frontend/
 │   ├── src/
-│   │   ├── App.jsx                 ← Main app (upload → simulate → display)
-│   │   ├── hooks/useSimulation.js  ← WebSocket client, manages sim state
+│   │   ├── App.jsx
+│   │   ├── hooks/useSimulation.js  ← WebSocket + market state
 │   │   └── components/
-│   │       ├── MapView.jsx         ← Leaflet map of Singapore GRCs
-│   │       ├── SidePanel.jsx       ← Provisions + GRC detail + levers
-│   │       ├── PolicyUpload.jsx    ← Drag-and-drop file upload
-│   │       ├── AgentVoice.jsx      ← Agent quote bubbles
-│   │       ├── DemographicBreakdown.jsx  ← Race/age sentiment bars
-│   │       ├── LeverControls.jsx   ← Sliders to adjust policy params
-│   │       ├── VotePrediction.jsx  ← Final PASS/FAIL vote call
-│   │       ├── SimulationProgress.jsx ← Progress bar during sim
+│   │       ├── MapView.jsx         ← Leaflet choropleth (GE2025 boundaries)
+│   │       ├── SidePanel.jsx       ← Provisions + market prices + live sentiment
+│   │       ├── VotePrediction.jsx  ← Market clearing price + price chart
+│   │       ├── SimulationProgress.jsx ← Dynamic agent count + market price
+│   │       ├── PolicyUpload.jsx    ← Drag-and-drop upload
+│   │       ├── AgentVoice.jsx      ← Agent quotes with bet amounts
+│   │       ├── DemographicBreakdown.jsx
+│   │       ├── LeverControls.jsx
 │   │       └── Header.jsx
 │   └── public/
-│       └── sg_electoral_boundaries.geojson  ← Real SG constituency map
+│       └── sg_electoral_boundaries.geojson
 │
-├── data/
-│   ├── grc_profiles.json          ← 15 GRCs with demographics + GE2020 data
-│   ├── sg_demographics.json       ← National-level Census summary
-│   ├── pop_age_sex.csv            ← Census: population by age/sex/planning area
-│   ├── pop_ethnicity.csv          ← Census: population by race/planning area
-│   ├── households_dwelling.csv    ← Census: housing types by planning area
-│   ├── income_by_area.csv         ← Census: income distribution by area
-│   ├── ge_results.csv             ← Election results 1955-2025
-│   ├── voter_turnout.csv          ← Voter turnout 1955-2025
-│   ├── ura_subzone_boundary.geojson  ← URA planning area boundaries
-│   └── test_policy.pdf            ← Sample budget policy for testing
+├── data/                   ← All real, all open (Singapore Open Data Licence)
+│   ├── grc_profiles.json   ← 31 constituencies (GE2025 boundaries)
+│   ├── ge_results.csv      ← 1955–2025 election results
+│   └── ...                 ← Census CSVs (see above)
 │
 └── eval/
-    └── benchmark.py               ← Validation scripts
+    └── benchmark.py        ← Full validation suite
 ```
 
 ---
 
 ## How To Run
 
-### Quick Start (30 seconds)
+### Quick Start
 
 ```bash
 cd polisim-repo
 
-# 1. Make sure .env has your keys (already done if Clawdy set it up)
-cat .env   # should show OPENAI_API_KEY and TINYFISH_API_KEY
+# 1. Set up .env
+cp .env.example .env
+# Edit .env to add your OPENAI_API_KEY and optionally TINYFISH_API_KEY
 
 # 2. Start both servers
 ./demo.sh
 ```
 
-Open `http://localhost:3000`. Upload a PDF or text file. Click "Run Simulation". Done.
+Open `http://localhost:3000`. Upload a PDF. Click "Run Simulation".
 
-### Manual Start (if demo.sh doesn't work)
+### Manual Start
 
 ```bash
 # Terminal 1: Backend
-cd polisim-repo
-source venv/bin/activate
-cd backend
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+cd polisim-repo && source venv/bin/activate
+cd backend && uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
 # Terminal 2: Frontend
-cd polisim-repo/frontend
-npm run dev
+cd polisim-repo/frontend && npm run dev
 ```
 
-### Testing Without API Keys (Mock Mode)
+### Mock Mode (No API Keys)
 
-If you remove the `OPENAI_API_KEY` from `.env` (or set it to something short), mock mode kicks in automatically. Everything works the same but with fake SG-themed responses instead of real GPT-4o calls. Great for frontend iteration.
+Remove `OPENAI_API_KEY` from `.env` (or set to placeholder). Everything works with deterministic Singapore-themed responses. Great for frontend iteration.
 
 ---
 
-## What Inputs Can I Provide?
+## API Reference
 
-### Via the UI (localhost:3000)
-- **PDF** — any policy document, budget statement, white paper
-- **TXT** — plaintext file with policy description
-- **MD** — markdown file
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/health` | Health check, mock mode status, region |
+| `POST` | `/api/upload` | Upload PDF/TXT/MD → parse provisions |
+| `POST` | `/api/upload-text` | `{"text": "..."}` → parse provisions |
+| `WS` | `/ws/simulate/{id}?agents=100` | Stream simulation (agents → market rounds → prediction) |
+| `GET` | `/api/demographics?ge_year=2025` | GRC profiles + election data |
+| `POST` | `/api/adjust/{id}?lever=X&value=Y` | Modify policy params, get new ID |
+| `GET` | `/api/backtest?ge_year=2025&agents=200` | Validate vs real GE results |
+| `POST` | `/api/gerrymander` | `{"target_party": "PAP", "ge_year": 2025}` |
 
-### Via API (curl / Postman)
+### WebSocket Message Types
 
-**Upload a file:**
-```bash
-curl -X POST http://localhost:8000/api/upload -F "file=@your_policy.pdf"
 ```
-
-**Paste raw text (no file needed):**
-```bash
-curl -X POST http://localhost:8000/api/upload-text \
-  -H 'Content-Type: application/json' \
-  -d '{"text": "The government will raise GST from 9% to 10% in 2027."}'
-```
-
-**Run backtest (compare against real GE2020):**
-```bash
-curl http://localhost:8000/api/backtest
-```
-
-**Gerrymandering analysis:**
-```bash
-curl -X POST http://localhost:8000/api/gerrymander \
-  -H 'Content-Type: application/json' \
-  -d '{"target_party": "PAP"}'
-```
-
-**Adjust policy levers (re-run with different params):**
-```bash
-curl -X POST "http://localhost:8000/api/adjust/{policy_id}?lever=income_threshold&value=12000"
+← {"type": "config",          "data": {"total_agents": 120, "contagion_rounds": 3}}
+← {"type": "agent_result",    "data": {sentiment, confidence, reason, persona, conviction_bet, yes_bet, no_bet, ...}}
+← {"type": "market_update",   "round": 0, "data": {market_price, implied_probability_pct, ...}}
+← {"type": "live_sentiment",  "data": {sources_scraped, price_adjustment, sentiments: [...]}}
+← {"type": "contagion_round", "round": 0-2, "data": {grc_aggregates}, "market": {market_price, ...}}
+← {"type": "vote_prediction", "data": {for_pct, against_pct, call, market: {...}, price_history: [...]}}
+← {"type": "complete"}
 ```
 
 ---
 
-## What Can I Tweak?
+## Configuration & Customization
 
 ### Agent Count
-In `backend/demographics.py` → `build_personas(target_count=40)`. Change `40` to `100` or `200` for richer sim (costs more OpenAI tokens, takes longer).
+WebSocket query param: `?agents=200` (default 100, max 500).
+Or backtest endpoint: `?agents=300`.
 
-### Agent Persona Template
-In `backend/agent_engine.py` → `AGENT_SYSTEM_PROMPT`. This is the prompt each agent gets. You can change the tone, add more persona fields, adjust the response format.
+### Region / Geography
+Edit `backend/config.py`. All demographic data (races, age bands, income tiers, housing, occupations, concerns, risk appetite curves, contagion parameters) lives in a config dict. To simulate a different region:
+1. Create a new config dict (e.g., `HONG_KONG`)
+2. Place constituency profiles JSON in `/data/`
+3. Set `ACTIVE_REGION = HONG_KONG`
+4. Update frontend GeoJSON + map center in `MapView.jsx`
 
-### Contagion Strength
-In `backend/contagion_v2.py` → `GROUP_WEIGHTS` dict and `DAMPING` constant. Higher damping (0.7→0.9) = agents more stubborn. Lower = more easily influenced by their community.
-
-### GRC Profiles
-`data/grc_profiles.json` — add/remove constituencies, change demographic weights. These drive persona generation.
+### Contagion Model
+In `config.py` → `contagion` dict:
+- `damping` (0.7): how much agents resist change (higher = more stubborn)
+- `group_weights`: influence strength per group type
+- `social_media_by_age`: cross-GRC information flow by age
 
 ### Policy Levers
-`backend/levers.py` → `LEVER_DEFINITIONS`. Add new sliders (e.g., "retirement_age", "foreign_worker_levy") and define how they modify provisions.
+`backend/levers.py` → `LEVER_DEFINITIONS`. Add new sliders and keyword-matching rules.
 
-### OpenAI Model
-In `backend/agent_engine.py` and `backend/policy_parser.py` — change `model="gpt-4o"` to `"gpt-4o-mini"` (cheaper, faster, less nuanced) or `"gpt-4-turbo"`.
-
----
-
-## Where MiroFish Plugs In
-
-MiroFish is a multi-agent "swarm intelligence" engine that builds a parallel digital world from documents using GraphRAG. Here's where it connects:
-
-### Option A: Replace the Agent Engine (Deepest Integration)
-
-**Instead of** our simple 40-agent GPT-4o loop (`agent_engine.py`), MiroFish:
-1. Takes the parsed provisions from `policy_parser.py`
-2. Builds a knowledge graph of entities and relationships
-3. Auto-generates agents with distinct personas, long-term memory, behavioral rules
-4. Simulates interactions across social environments (Twitter-like, Reddit-like)
-5. Returns emergent sentiment/outcomes
-
-**Where to wire:** Replace the `stream_agent_results()` call in `main.py` (line ~67) with a MiroFish API call. The WebSocket handler just needs results in this shape:
-
-```python
-{
-    "sentiment": "support" | "neutral" | "reject",
-    "confidence": 0.8,
-    "reason": "As a 35yo nurse...",
-    "vote_intent": "for" | "against" | "undecided",
-    "key_provision": "#2",
-    "persona": {"race": "Chinese", "age": "30-44", "grc": "Ang Mo Kio GRC", ...},
-    "score": 1.0   # 1.0=support, 0=neutral, -1=reject
-}
-```
-
-### Option B: Replace the Contagion Model (Medium Integration)
-
-**Instead of** our simple group-based contagion (`contagion_v2.py`), MiroFish handles the social simulation layer — agents interacting over rounds, building coalitions, shifting opinions organically.
-
-**Where to wire:** Replace the `propagate_sentiment()` calls in `main.py` (lines ~73-80).
-
-### Option C: Supplement with Sentiment Scraping (Lightest Integration)
-
-**Use MiroFish** to scrape/analyze real public sentiment from forums, then seed our agents' initial attitudes with that data. This sits alongside TinyFish.
-
-**Where to wire:** `backend/scraper.py` — add a `mirofish_scrape()` function, call it from the sim loop to ground agents in real-world sentiment.
-
-### Data Format Contract
-
-Whatever MiroFish returns, the frontend needs these fields per agent:
-- `sentiment` (string: "support"/"neutral"/"reject")
-- `reason` (string: 1-2 sentence quote)
-- `persona.race`, `persona.age`, `persona.grc` (for map/breakdown display)
-- `score` (float: -1 to 1, for contagion math)
+### Prediction Market Tuning
+`backend/market.py`: bet sizing, neutral agent split, live sentiment weight (15%).
+`backend/config.py`: `risk_appetite_by_age/income/housing` curves.
 
 ---
 
-## API Reference (All Endpoints)
+## Data Sources
 
-| Method | Endpoint | What It Does |
-|--------|----------|-------------|
-| `GET` | `/api/health` | Health check + mock mode status |
-| `POST` | `/api/upload` | Upload PDF/TXT/MD → parse provisions |
-| `POST` | `/api/upload-text` | Paste raw text → parse provisions |
-| `WS` | `/ws/simulate/{policy_id}` | Stream simulation (agents → contagion → vote) |
-| `GET` | `/api/demographics` | GRC profiles with Census + GE2020 data |
-| `POST` | `/api/adjust/{policy_id}` | Re-run with modified policy params |
-| `GET` | `/api/backtest` | Compare predictions vs actual GE2020 |
-| `POST` | `/api/gerrymander` | Redistricting/gerrymandering analysis |
-
-### WebSocket Message Types (what the frontend receives)
-
-```
-→ {"type": "agent_result", "data": {...}}     # one per agent (40 total)
-→ {"type": "contagion_round", "round": 0-2}   # sentiment propagation
-→ {"type": "vote_prediction", "data": {...}}   # final vote call
-→ {"type": "complete"}                         # simulation done
-```
-
----
-
-## Data Sources (All Real, All Open)
-
-| Dataset | Source | Records |
-|---------|--------|---------|
-| Electoral boundaries (GeoJSON) | data.gov.sg / ELD | 31 constituencies |
+| Dataset | Source | Coverage |
+|---------|--------|----------|
+| Electoral boundaries (GeoJSON) | ELD / data.gov.sg | 31 GE2025 constituencies |
 | Population by age/sex | Census 2020 / SingStat | 389 planning areas |
 | Population by ethnicity | Census 2020 / SingStat | 389 planning areas |
 | Households by dwelling type | Census 2020 / SingStat | 31 planning areas |
 | Income distribution | Census 2020 / SingStat | 31 planning areas |
-| Election results | ELD | 1955-2025 (1610 rows) |
-| Voter turnout | ELD | 1955-2025 (754 rows) |
-| URA subzone boundaries | URA | 3.2MB GeoJSON |
+| Election results | ELD | 1955–2025 (1610 rows) |
+| Voter turnout | ELD | 1955–2025 (754 rows) |
+
+All data is public under Singapore Open Data Licence. No API keys needed for access.
 
 ---
 
-## Hackathon Demo Script (2 min)
+## Demo Script (2 min)
 
-1. **Hook** (15s): "14 million scenarios, only one you win. Polysim is a prediction market without the market."
+1. **Hook** (15s): "14 million scenarios, only one you win. Polysim is a prediction market in silico."
 2. **Upload** (15s): Drop in a real policy PDF → provisions appear
-3. **Simulate** (20s): Click Run → watch 40 agents stream in, map lights up, click a GRC
-4. **Backtest** (15s): "We retroactively called Sengkang and Aljunied for the opposition"
-5. **Gerrymander** (20s): "What if we redrew boundaries? Polysim finds the swing seats"
-6. **Levers** (15s): Pull the income slider → watch sentiment shift live
+3. **Simulate** (20s): Watch 100+ agents stream in, placing bets. Map lights up. Market price emerges.
+4. **Backtest** (15s): "We retroactively called GE2025 results with 67% accuracy — without training on election data"
+5. **Market** (15s): Show the price evolution chart. "This isn't a poll — it's a market. Polls lie; markets don't."
+6. **Levers** (15s): Pull the income slider → watch the market price shift live
 7. **Expand** (15s): "Policy is just the start. Marketing campaigns, M&A, product launches — anything that's a bet on how people react"
-8. **Close** (5s): "Polysim. We help you win."
+8. **Close** (5s): "Polysim. Run the bet before anyone votes."

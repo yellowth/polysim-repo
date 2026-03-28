@@ -1,6 +1,8 @@
-import { Play, Loader2, CheckCircle2, Users, Zap } from "lucide-react";
+import { Play, Loader2, CheckCircle2, Users, Zap, TrendingUp } from "lucide-react";
 
-export default function SimulationProgress({ status, agentCount, contagionRound, onSimulate, latestAgent }) {
+export default function SimulationProgress({ status, agentCount, totalAgents, contagionRound, onSimulate, latestAgent, marketPrice }) {
+  const total = totalAgents || 100;
+
   return (
     <div className="px-6 py-2 border-b border-slate-800 bg-slate-900/50">
       <div className="flex items-center gap-4">
@@ -22,23 +24,28 @@ export default function SimulationProgress({ status, agentCount, contagionRound,
               <div className="flex items-center gap-2">
                 <Zap className="w-3.5 h-3.5 text-amber-400" />
                 <span className="text-sm text-amber-400">
-                  Social contagion propagation — round {contagionRound + 1}/3
+                  Market round {contagionRound + 1}/3
                 </span>
                 <span className="text-xs text-slate-500">
-                  (sentiment rippling through communities)
+                  (information cascading through social networks)
                 </span>
+                {marketPrice && (
+                  <span className="text-xs text-emerald-400 font-mono ml-2">
+                    <TrendingUp className="w-3 h-3 inline mr-1" />
+                    {(marketPrice.market_price * 100).toFixed(1)}%
+                  </span>
+                )}
               </div>
             ) : (
               <div className="flex items-center gap-2 min-w-0">
                 <Users className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                 <span className="text-sm text-slate-300">
-                  Agent <span className="text-emerald-400 font-mono">{agentCount}</span>/40 evaluated
+                  Agent <span className="text-emerald-400 font-mono">{agentCount}</span>/{total} evaluated
                 </span>
-                {/* Progress bar */}
                 <div className="w-24 h-1.5 bg-slate-800 rounded-full overflow-hidden shrink-0">
                   <div
                     className="h-full bg-emerald-500 transition-all duration-300"
-                    style={{ width: `${(agentCount / 40) * 100}%` }}
+                    style={{ width: `${(agentCount / total) * 100}%` }}
                   />
                 </div>
               </div>
@@ -51,6 +58,11 @@ export default function SimulationProgress({ status, agentCount, contagionRound,
             <span className="text-sm text-emerald-400">
               {agentCount} agents evaluated · Simulation complete
             </span>
+            {marketPrice && (
+              <span className="text-sm text-slate-400 ml-2">
+                Market price: <span className="text-emerald-400 font-mono">{(marketPrice.market_price * 100).toFixed(1)}%</span>
+              </span>
+            )}
           </>
         )}
       </div>
@@ -65,8 +77,13 @@ export default function SimulationProgress({ status, agentCount, contagionRound,
           <span className="text-slate-400 shrink-0">
             {latestAgent.persona?.race} {latestAgent.persona?.age} · {latestAgent.persona?.grc}
           </span>
+          {latestAgent.conviction_bet > 0 && (
+            <span className="text-emerald-500/60 shrink-0 font-mono">
+              ${latestAgent.conviction_bet.toFixed(0)} bet
+            </span>
+          )}
           <span className="truncate italic text-slate-600">
-            "{latestAgent.reason?.slice(0, 80)}..."
+            &ldquo;{latestAgent.reason?.slice(0, 80)}...&rdquo;
           </span>
         </div>
       )}

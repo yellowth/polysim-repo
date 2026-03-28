@@ -1,6 +1,6 @@
 """
 Load real Singapore government Census + Election data from CSVs.
-Enhances demographics with actual population distributions.
+Supports GE2020 and GE2025 results with robust constituency matching.
 """
 import csv
 import os
@@ -19,29 +19,33 @@ def _read_csv(filename: str) -> list[dict]:
         return list(csv.DictReader(f))
 
 
+def _safe_int(v) -> int:
+    try:
+        return int(str(v).replace(",", "").strip())
+    except (ValueError, AttributeError, TypeError):
+        return 0
+
+
+def _safe_float(v) -> float:
+    try:
+        return float(str(v).replace(",", "").strip())
+    except (ValueError, AttributeError, TypeError):
+        return 0.0
+
+
 def load_pop_age_sex() -> dict:
-    """
-    Load Census 2020 population by planning area, age group, and sex.
-    Returns: {planning_area: {age_band: population}}
-    """
+    """Load Census 2020 population by planning area, age group, and sex."""
     rows = _read_csv("pop_age_sex.csv")
     result = {}
     for row in rows:
         name = row.get("Number", "").strip()
         if not name or name == "Total" or " - " in name:
-            # Skip subzones, keep only planning area totals
             if " - Total" in name:
                 area = name.replace(" - Total", "").strip()
             else:
                 continue
         else:
             area = name
-
-        def _safe_int(v):
-            try:
-                return int(v.replace(",", "").strip())
-            except (ValueError, AttributeError):
-                return 0
 
         result[area] = {
             "total": _safe_int(row.get("Total_Total", "0")),
@@ -56,10 +60,7 @@ def load_pop_age_sex() -> dict:
 
 
 def load_pop_ethnicity() -> dict:
-    """
-    Load Census 2020 population by planning area and ethnic group.
-    Returns: {planning_area: {chinese: N, malay: N, indian: N, others: N, total: N}}
-    """
+    """Load Census 2020 population by planning area and ethnic group."""
     rows = _read_csv("pop_ethnicity.csv")
     result = {}
     for row in rows:
@@ -72,15 +73,8 @@ def load_pop_ethnicity() -> dict:
         else:
             area = name
 
-        def _safe_int(v):
-            try:
-                return int(v.replace(",", "").strip())
-            except (ValueError, AttributeError):
-                return 0
-
-        total = _safe_int(row.get("Total_Total", "0"))
         result[area] = {
-            "total": total,
+            "total": _safe_int(row.get("Total_Total", "0")),
             "chinese": _safe_int(row.get("Chinese_Total", "0")),
             "malays": _safe_int(row.get("Malays_Total", "0")),
             "indians": _safe_int(row.get("Indians_Total", "0")),
@@ -90,22 +84,13 @@ def load_pop_ethnicity() -> dict:
 
 
 def load_households_dwelling() -> dict:
-    """
-    Load Census 2020 households by dwelling type and planning area.
-    Returns: {planning_area: {hdb_1_3: N, hdb_4_5: N, condo: N, landed: N, total: N}}
-    """
+    """Load Census 2020 households by dwelling type and planning area."""
     rows = _read_csv("households_dwelling.csv")
     result = {}
     for row in rows:
         name = row.get("Number", "").strip()
         if not name or name == "Total":
             continue
-
-        def _safe_int(v):
-            try:
-                return int(v.replace(",", "").strip())
-            except (ValueError, AttributeError):
-                return 0
 
         result[name] = {
             "total": _safe_int(row.get("Total", "0")),
@@ -120,10 +105,7 @@ def load_households_dwelling() -> dict:
 
 
 def load_income_distribution() -> dict:
-    """
-    Load Census 2020 household income distribution by planning area.
-    Returns: {planning_area: {median_approx: float, low_pct: float, mid_pct: float, high_pct: float}}
-    """
+    """Load Census 2020 household income distribution by planning area."""
     rows = _read_csv("income_by_area.csv")
     result = {}
     for row in rows:
@@ -131,23 +113,13 @@ def load_income_distribution() -> dict:
         if not name or name == "Total":
             continue
 
-        def _safe_int(v):
-            try:
-                return int(v.replace(",", "").strip())
-            except (ValueError, AttributeError):
-                return 0
-
         total = _safe_int(row.get("Total", "0"))
         no_emp = _safe_int(row.get("NoEmployedPerson", "0"))
-        employed = total - no_emp if total > no_emp else total
 
-        # Low income: <$3K
         low = sum(_safe_int(row.get(c, "0")) for c in ["Below_1_000", "1_000_1_999", "2_000_2_999"])
-        # Mid income: $3K-$10K
         mid = sum(_safe_int(row.get(c, "0")) for c in
                   ["3_000_3_999", "4_000_4_999", "5_000_5_999", "6_000_6_999",
                    "7_000_7_999", "8_000_8_999", "9_000_9_999"])
-        # High income: $10K+
         high = sum(_safe_int(row.get(c, "0")) for c in
                    ["10_000_10_999", "11_000_11_999", "12_000_12_999", "13_000_13_999",
                     "14_000_14_999", "15_000_17_499", "17_500_19_999", "20_000andOver"])
@@ -158,7 +130,6 @@ def load_income_distribution() -> dict:
             "low_pct": round(low / emp_total, 3),
             "mid_pct": round(mid / emp_total, 3),
             "high_pct": round(high / emp_total, 3),
-            # Approximate median by finding which band contains the 50th percentile
             "median_approx": _approx_median(row),
         }
     return result
@@ -167,37 +138,17 @@ def load_income_distribution() -> dict:
 def _approx_median(row: dict) -> float:
     """Approximate median household income from band distribution."""
     bands = [
-        ("Below_1_000", 500),
-        ("1_000_1_999", 1500),
-        ("2_000_2_999", 2500),
-        ("3_000_3_999", 3500),
-        ("4_000_4_999", 4500),
-        ("5_000_5_999", 5500),
-        ("6_000_6_999", 6500),
-        ("7_000_7_999", 7500),
-        ("8_000_8_999", 8500),
-        ("9_000_9_999", 9500),
-        ("10_000_10_999", 10500),
-        ("11_000_11_999", 11500),
-        ("12_000_12_999", 12500),
-        ("13_000_13_999", 13500),
-        ("14_000_14_999", 14500),
-        ("15_000_17_499", 16250),
-        ("17_500_19_999", 18750),
-        ("20_000andOver", 25000),
+        ("Below_1_000", 500), ("1_000_1_999", 1500), ("2_000_2_999", 2500),
+        ("3_000_3_999", 3500), ("4_000_4_999", 4500), ("5_000_5_999", 5500),
+        ("6_000_6_999", 6500), ("7_000_7_999", 7500), ("8_000_8_999", 8500),
+        ("9_000_9_999", 9500), ("10_000_10_999", 10500), ("11_000_11_999", 11500),
+        ("12_000_12_999", 12500), ("13_000_13_999", 13500), ("14_000_14_999", 14500),
+        ("15_000_17_499", 16250), ("17_500_19_999", 18750), ("20_000andOver", 25000),
     ]
-
-    def _safe_int(v):
-        try:
-            return int(v.replace(",", "").strip())
-        except (ValueError, AttributeError):
-            return 0
-
     counts = [(_safe_int(row.get(col, "0")), mid) for col, mid in bands]
     total = sum(c for c, _ in counts)
     if total == 0:
         return 0
-
     cumulative = 0
     for count, midpoint in counts:
         cumulative += count
@@ -206,9 +157,42 @@ def _approx_median(row: dict) -> float:
     return 25000
 
 
+def _normalize_constituency(name: str) -> str:
+    """Normalize constituency name for robust matching."""
+    return name.upper().replace(" GRC", "").replace(" SMC", "").replace("-", " ").strip()
+
+
+def _match_constituency(short_name: str, candidates: dict) -> str | None:
+    """
+    Match a GRC name to a key in candidates dict using normalized comparison.
+    Uses exact match first, then falls back to best substring match.
+    """
+    norm = _normalize_constituency(short_name)
+
+    # Pass 1: exact normalized match
+    for k in candidates:
+        if _normalize_constituency(k) == norm:
+            return k
+
+    # Pass 2: one contains the other (handles "Jurong" matching "Jurong Central")
+    best_match = None
+    best_score = 0
+    for k in candidates:
+        k_norm = _normalize_constituency(k)
+        if norm in k_norm or k_norm in norm:
+            # Prefer the closest length match
+            score = min(len(norm), len(k_norm)) / max(len(norm), len(k_norm))
+            if score > best_score:
+                best_score = score
+                best_match = k
+
+    return best_match if best_score > 0.5 else None
+
+
 def load_ge_results(year: int = 2020) -> dict:
     """
     Load general election results for a given year.
+    Parties are sorted by vote_percentage descending (winner first).
     Returns: {constituency: [{party, candidates, vote_count, vote_percentage}]}
     """
     rows = _read_csv("ge_results.csv")
@@ -220,18 +204,20 @@ def load_ge_results(year: int = 2020) -> dict:
         result[constituency].append({
             "party": row.get("party", "").strip(),
             "candidates": row.get("candidates", "").strip(),
-            "vote_count": int(row.get("vote_count", "0").strip()),
-            "vote_percentage": float(row.get("vote_percentage", "0").strip()),
+            "vote_count": _safe_int(row.get("vote_count", "0")),
+            "vote_percentage": _safe_float(row.get("vote_percentage", "0")),
             "constituency_type": row.get("constituency_type", "").strip(),
         })
+
+    # Sort each constituency's parties by vote share (winner first)
+    for constituency in result:
+        result[constituency].sort(key=lambda p: p["vote_percentage"], reverse=True)
+
     return dict(result)
 
 
 def load_voter_turnout(year: int = 2020) -> dict:
-    """
-    Load voter turnout data for a given year.
-    Returns: {constituency: {registered_electors, rejected_votes, spoilt_ballots}}
-    """
+    """Load voter turnout data for a given year."""
     rows = _read_csv("voter_turnout.csv")
     result = {}
     for row in rows:
@@ -239,86 +225,59 @@ def load_voter_turnout(year: int = 2020) -> dict:
             continue
         constituency = row.get("constituency", "").strip()
         result[constituency] = {
-            "registered_electors": int(row.get("no_of_registered_electors", "0").strip()),
-            "rejected_votes": int(row.get("no_of_rejected_votes", "0").strip()),
-            "spoilt_ballots": int(row.get("no_of_spoilt_ballot_papers", "0").strip()),
+            "registered_electors": _safe_int(row.get("no_of_registered_electors", "0")),
+            "rejected_votes": _safe_int(row.get("no_of_rejected_votes", "0")),
+            "spoilt_ballots": _safe_int(row.get("no_of_spoilt_ballot_papers", "0")),
         }
     return result
 
 
-def get_enriched_grc_profiles() -> dict:
+def get_enriched_grc_profiles(ge_year: int = 2025) -> dict:
     """
     Build enriched GRC profiles by combining all real data sources.
-    Falls back to grc_profiles.json for GRC-specific data (since Census data
-    is at planning-area level, not constituency level).
+    Supports both GE2020 and GE2025 results.
     """
-    # Load base profiles
     base_path = os.path.join(DATA_DIR, "grc_profiles.json")
+    if not os.path.exists(base_path):
+        return {}
     with open(base_path) as f:
         base = json.load(f)
 
-    # Load real data
-    ethnicity = load_pop_ethnicity()
-    income = load_income_distribution()
-    ge_results = load_ge_results(2020)
-    turnout = load_voter_turnout(2020)
+    ge_results = load_ge_results(ge_year)
+    turnout = load_voter_turnout(ge_year)
 
-    # Enrich each GRC
     for grc_name, profile in base.items():
-        # Strip "GRC" / "SMC" suffix for matching
-        short_name = grc_name.replace(" GRC", "").replace(" SMC", "").strip()
-
-        # Add GE2020 results if available
-        ge_key = next((k for k in ge_results if short_name.upper() in k.upper()), None)
+        # Match using robust constituency matcher
+        ge_key = _match_constituency(grc_name, ge_results)
         if ge_key:
             parties = ge_results[ge_key]
-            profile["ge2020"] = {
+            # Parties already sorted by vote_percentage desc
+            winner = parties[0]["party"] if parties else "Unknown"
+            margin = (parties[0]["vote_percentage"] - parties[1]["vote_percentage"]) \
+                if len(parties) > 1 else 1.0
+
+            profile[f"ge{ge_year}"] = {
                 "results": parties,
-                "winner": max(parties, key=lambda p: p["vote_percentage"])["party"],
-                "margin": abs(parties[0]["vote_percentage"] - parties[-1]["vote_percentage"])
-                          if len(parties) > 1 else 1.0,
+                "winner": winner,
+                "margin": abs(margin),
             }
 
-        # Add turnout data
-        turnout_key = next((k for k in turnout if short_name.upper() in k.upper()), None)
+        turnout_key = _match_constituency(grc_name, turnout)
         if turnout_key:
             profile["turnout"] = turnout[turnout_key]
 
     return base
 
 
-# Quick test
 if __name__ == "__main__":
-    print("=== Population Age/Sex ===")
-    age = load_pop_age_sex()
-    print(f"  {len(age)} planning areas")
-    if "Ang Mo Kio" in age:
-        print(f"  Ang Mo Kio: {age['Ang Mo Kio']}")
+    print("=== GE2025 Results ===")
+    ge25 = load_ge_results(2025)
+    print(f"  {len(ge25)} constituencies")
+    for k, v in list(ge25.items())[:5]:
+        print(f"  {k}: {v[0]['party']} {v[0]['vote_percentage']:.1%} (winner)")
 
-    print("\n=== Ethnicity ===")
-    eth = load_pop_ethnicity()
-    print(f"  {len(eth)} planning areas")
-    if "Ang Mo Kio" in eth:
-        print(f"  Ang Mo Kio: {eth['Ang Mo Kio']}")
-
-    print("\n=== Households ===")
-    hh = load_households_dwelling()
-    print(f"  {len(hh)} planning areas")
-
-    print("\n=== Income ===")
-    inc = load_income_distribution()
-    print(f"  {len(inc)} planning areas")
-    if "Ang Mo Kio" in inc:
-        print(f"  Ang Mo Kio: {inc['Ang Mo Kio']}")
-
-    print("\n=== GE2020 Results ===")
-    ge = load_ge_results(2020)
-    print(f"  {len(ge)} constituencies")
-    for k, v in list(ge.items())[:3]:
-        print(f"  {k}: {v[0]['party']} {v[0]['vote_percentage']:.1%}")
-
-    print("\n=== Enriched GRC Profiles ===")
-    profiles = get_enriched_grc_profiles()
-    for name, p in list(profiles.items())[:2]:
-        ge = p.get("ge2020", {})
+    print("\n=== Enriched GRC Profiles (GE2025) ===")
+    profiles = get_enriched_grc_profiles(2025)
+    for name, p in list(profiles.items())[:5]:
+        ge = p.get("ge2025", {})
         print(f"  {name}: winner={ge.get('winner','?')}, margin={ge.get('margin',0):.2%}")
