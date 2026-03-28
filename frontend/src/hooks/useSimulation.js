@@ -14,6 +14,7 @@ export default function useSimulation() {
   // New: live agent feed and unified chart data
   const [agentHistory, setAgentHistory] = useState([]);
   const [chartData, setChartData] = useState([]);
+  const [predictionLog, setPredictionLog] = useState([]);
   const wsRef = useRef(null);
 
   // Running bet totals for live price estimate during agent evaluation
@@ -35,6 +36,7 @@ export default function useSimulation() {
     setLiveSentiment(null);
     setAgentHistory([]);
     setChartData([]);
+    setPredictionLog([]);
     yesBetsRef.current = 0;
     noBetsRef.current = 0;
     agentCountRef.current = 0;
@@ -99,6 +101,14 @@ export default function useSimulation() {
       if (msg.type === "market_update") {
         setMarketPrice(msg.data);
         setPriceHistory((prev) => [...prev, { round: msg.round, ...msg.data }]);
+        setPredictionLog((prev) => [
+          ...prev,
+          {
+            type: "market_update",
+            round: msg.round,
+            market: msg.data,
+          },
+        ]);
         // Add initial market price as a named point
         setChartData((prev) => [
           ...prev,
@@ -113,6 +123,13 @@ export default function useSimulation() {
 
       if (msg.type === "live_sentiment") {
         setLiveSentiment(msg.data);
+        setPredictionLog((prev) => [
+          ...prev,
+          {
+            type: "live_sentiment",
+            data: msg.data,
+          },
+        ]);
       }
 
       if (msg.type === "contagion_round") {
@@ -131,6 +148,14 @@ export default function useSimulation() {
             },
           ]);
         }
+        setPredictionLog((prev) => [
+          ...prev,
+          {
+            type: "contagion_round",
+            round: msg.round,
+            market: msg.market,
+          },
+        ]);
       }
 
       if (msg.type === "vote_prediction") {
@@ -141,21 +166,29 @@ export default function useSimulation() {
         if (msg.data.price_history) {
           setPriceHistory(msg.data.price_history);
         }
+        setPredictionLog((prev) => [
+          ...prev,
+          {
+            type: "vote_prediction",
+            data: msg.data,
+          },
+        ]);
       }
 
       if (msg.type === "complete") {
         setStatus("complete");
+        setPredictionLog((prev) => [...prev, { type: "complete" }]);
       }
     };
 
     ws.onerror = () => setStatus("idle");
-    ws.onclose = () => {};
+    ws.onclose = () => setStatus((s) => s === "simulating" ? "complete" : s);
   }, []);
 
   return {
     status, grcSentiment, agentCount, totalAgents, contagionRound,
     votePrediction, latestAgent, marketPrice, priceHistory, liveSentiment,
-    agentHistory, chartData,
+    agentHistory, chartData, predictionLog,
     connect,
   };
 }

@@ -101,13 +101,17 @@ export default function LiveMarketChart({ chartData, marketPrice, status, contag
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={chartData} margin={{ top: 8, right: 12, left: -18, bottom: 0 }}>
               <defs>
-                <linearGradient id="priceGradientPass" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                {/* Vertical stroke gradient: green at top (100%), amber at 50%, red at bottom (0%) */}
+                <linearGradient id="priceStrokeGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#22c55e" />
+                  <stop offset="50%" stopColor="#f59e0b" />
+                  <stop offset="100%" stopColor="#ef4444" />
                 </linearGradient>
-                <linearGradient id="priceGradientFail" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                {/* Area fill: subtle version of the same */}
+                <linearGradient id="priceAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#22c55e" stopOpacity={0.22} />
+                  <stop offset="50%" stopColor="#f59e0b" stopOpacity={0.08} />
+                  <stop offset="100%" stopColor="#ef4444" stopOpacity={0.18} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
@@ -136,9 +140,9 @@ export default function LiveMarketChart({ chartData, marketPrice, status, contag
               <Area
                 type="monotoneX"
                 dataKey="price"
-                stroke={current != null && current >= 50 ? "#22c55e" : "#ef4444"}
-                strokeWidth={2}
-                fill={current != null && current >= 50 ? "url(#priceGradientPass)" : "url(#priceGradientFail)"}
+                stroke="url(#priceStrokeGradient)"
+                strokeWidth={2.5}
+                fill="url(#priceAreaGradient)"
                 dot={<CustomDot />}
                 activeDot={{ r: 4, stroke: "#0f172a", strokeWidth: 2 }}
                 isAnimationActive={false}
