@@ -182,9 +182,21 @@ async def stream_research_and_generate(description: str):
                 "snippet": snippet,
                 "success": success,
                 "raw": raw if success else {},
+                "error": raw.get("error") if not success else None,
             }
 
-            # ── GPT-4o narrates what it found ──────────────────────────────────
+            if not success:
+                # Real error — don't narrate fake "I'll use estimates", just report
+                yield {
+                    "type": "narrate",
+                    "index": i,
+                    "text": f"TinyFish could not retrieve this page: {raw.get('error', 'unknown error')}",
+                    "is_error": True,
+                }
+                research_results.append({"search": search, "result": None, "success": False})
+                continue
+
+            # ── GPT-4o narrates what it actually found ─────────────────────────
             try:
                 narration_resp = await _get_client().chat.completions.create(
                     model="gpt-4o",
@@ -201,16 +213,23 @@ async def stream_research_and_generate(description: str):
                 )
                 narration = narration_resp.choices[0].message.content.strip()
             except Exception:
-                narration = "Processed result."
+                narration = "Data retrieved."
 
             yield {"type": "narrate", "index": i, "text": narration}
-            research_results.append({"search": search, "result": raw, "success": success})
+            research_results.append({"search": search, "result": raw, "success": True})
 
         # ── Step 3: Synthesize ─────────────────────────────────────────────────
-        yield {"type": "synthesis_start"}
+        successful = [r for r in research_results if r["success"]]
+        failed_count = len(research_results) - len(successful)
+        yield {
+            "type": "synthesis_start",
+            "live_results": len(successful),
+            "failed": failed_count,
+        }
+
         research_summary = json.dumps([
             {"label": r["search"]["label"], "data": r["result"]}
-            for r in research_results
+            for r in successful
         ], indent=2)[:4000]  # cap context size
 
         try:
