@@ -6,7 +6,8 @@ and returns structured JSON results from real Chromium browser sessions.
 import os, httpx, json
 
 TINYFISH_API_KEY = os.getenv("TINYFISH_API_KEY", "")
-TINYFISH_BASE_URL = os.getenv("TINYFISH_BASE_URL", "https://agent.tinyfish.io")
+# Official API host: https://docs.tinyfish.ai (POST /v1/automation/run)
+TINYFISH_BASE_URL = os.getenv("TINYFISH_BASE_URL", "https://agent.tinyfish.ai").rstrip("/")
 
 
 async def tinyfish_run(url: str, goal: str, browser_profile: str = "lite", timeout: float = 90.0) -> dict:
@@ -20,7 +21,7 @@ async def tinyfish_run(url: str, goal: str, browser_profile: str = "lite", timeo
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                f"{TINYFISH_BASE_URL}/v1/run",
+                f"{TINYFISH_BASE_URL}/v1/automation/run",
                 headers={
                     "X-API-Key": TINYFISH_API_KEY,
                     "Content-Type": "application/json",
