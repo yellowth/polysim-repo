@@ -4,14 +4,91 @@ import LeverControls from "./LeverControls";
 import VotePrediction from "./VotePrediction";
 import LiveMarketChart from "./LiveMarketChart";
 import AgentStreamFeed from "./AgentStreamFeed";
-import { Radio, ChevronRight } from "lucide-react";
+import {
+  Radio,
+  ChevronRight,
+  Search,
+  CheckCircle2,
+  Loader2,
+  TrendingUp,
+  Bot,
+} from "lucide-react";
+
+function PredictionLogLine({ entry }) {
+  if (entry.type === "market_update") {
+    return (
+      <div className="flex gap-2 text-xs items-start">
+        <TrendingUp className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+        <span className="text-emerald-300">
+          Initial market set at {((entry.market?.market_price || 0) * 100).toFixed(1)}%
+          {" "}
+          ({entry.market?.call || "PENDING"})
+        </span>
+      </div>
+    );
+  }
+
+  if (entry.type === "live_sentiment") {
+    const data = entry.data || {};
+    return (
+      <div className="space-y-1.5">
+        <div className="flex gap-2 text-xs items-start">
+          <Search className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5 animate-pulse" />
+          <span className="text-amber-300">
+            TinyFish scraped {data.sources_scraped || 0} live sentiment source{data.sources_scraped === 1 ? "" : "s"}
+            {" "}
+            and adjusted the market by{" "}
+            <span className={data.price_adjustment > 0 ? "text-emerald-400" : "text-red-400"}>
+              {data.price_adjustment > 0 ? "+" : ""}
+              {((data.price_adjustment || 0) * 100).toFixed(1)}%
+            </span>
+            .
+          </span>
+        </div>
+        {(data.sentiments || []).slice(0, 5).map((s, i) => (
+          <div key={i} className="flex gap-2 text-xs items-start ml-5">
+            <CheckCircle2 className="w-3 h-3 text-amber-500 shrink-0 mt-0.5" />
+            <span className="text-slate-400">
+              [{s.source}] {s.text}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (entry.type === "contagion_round") {
+    return (
+      <div className="flex gap-2 text-xs items-start">
+        <Loader2 className="w-3.5 h-3.5 text-sky-400 shrink-0 mt-0.5" />
+        <span className="text-sky-300">
+          Market round {entry.round + 1} cleared at {((entry.market?.market_price || 0) * 100).toFixed(1)}%.
+        </span>
+      </div>
+    );
+  }
+
+  if (entry.type === "vote_prediction") {
+    const data = entry.data || {};
+    return (
+      <div className="flex gap-2 text-xs items-start">
+        <Bot className="w-3.5 h-3.5 text-purple-400 shrink-0 mt-0.5" />
+        <span className="text-purple-300">
+          Final call: {data.call || "PENDING"} with {data.for_pct?.toFixed?.(1) ?? data.for_pct}% for and {data.against_pct?.toFixed?.(1) ?? data.against_pct}% against.
+        </span>
+      </div>
+    );
+  }
+
+  return null;
+}
 
 export default function SidePanel({
   provisions, scenarioFrame, selectedGrc, grcSentiment,
   votePrediction, marketPrice, priceHistory, liveSentiment,
   onLeverChange, className,
   // new props
-  chartData, agentHistory, status, agentCount, totalAgents, contagionRound,
+  chartData, agentHistory, status, agentCount, totalAgents, contagionRound, predictionLog,
 }) {
   const grcData = selectedGrc ? grcSentiment[selectedGrc] : null;
 
@@ -82,26 +159,14 @@ export default function SidePanel({
           </div>
         </div>
 
-        {/* Live Sentiment (TinyFish) */}
-        {liveSentiment && (
-          <div className="bg-slate-900 rounded-xl p-3 border border-amber-500/20">
-            <h3 className="text-[10px] font-semibold text-amber-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-              <Radio className="w-3 h-3" /> Live Sentiment
+        {/* Prediction console */}
+        {predictionLog?.length > 0 && (
+          <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-2 font-mono">
+            <h3 className="text-[10px] font-semibold text-amber-400 uppercase tracking-widest mb-2 flex items-center gap-1.5 font-sans">
+              <Radio className="w-3 h-3" /> Prediction Console
             </h3>
-            <div className="text-[10px] text-slate-400">
-              {liveSentiment.sources_scraped} sources scraped
-              <span className={`ml-2 font-mono ${liveSentiment.price_adjustment > 0 ? "text-emerald-400" : "text-red-400"}`}>
-                {liveSentiment.price_adjustment > 0 ? "+" : ""}{(liveSentiment.price_adjustment * 100).toFixed(1)}%
-              </span>
-            </div>
-            {liveSentiment.sentiments?.slice(0, 3).map((s, i) => (
-              <div key={i} className="mt-1.5 text-[10px] text-slate-500 truncate">
-                <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 ${
-                  s.sentiment === "positive" ? "bg-emerald-500" :
-                  s.sentiment === "negative" ? "bg-red-500" : "bg-amber-500"
-                }`} />
-                [{s.source}] {s.text}
-              </div>
+            {predictionLog.map((entry, i) => (
+              <PredictionLogLine key={i} entry={entry} />
             ))}
           </div>
         )}

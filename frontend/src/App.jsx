@@ -161,6 +161,7 @@ export default function App() {
               agentCount={sim.agentCount}
               totalAgents={sim.totalAgents}
               contagionRound={sim.contagionRound}
+              predictionLog={sim.predictionLog}
             />
           </main>
         </>
