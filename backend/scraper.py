@@ -3,11 +3,123 @@ TinyFish Web Agent integration for scraping Singapore demographic + sentiment da
 TinyFish is a browser automation API that accepts natural language goals
 and returns structured JSON results from real Chromium browser sessions.
 """
-import os, httpx, json
+import asyncio
+import json
+import os
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+import httpx
 
 TINYFISH_API_KEY = os.getenv("TINYFISH_API_KEY", "")
 # Official API host: https://docs.tinyfish.ai (POST /v1/automation/run)
 TINYFISH_BASE_URL = os.getenv("TINYFISH_BASE_URL", "https://agent.tinyfish.ai").rstrip("/")
+DEMO_CACHE_PATH = Path(__file__).resolve().parent.parent / "data" / "demo_tinyfish_cache.json"
+
+
+def get_tinyfish_api_key() -> str:
+    return os.getenv("TINYFISH_API_KEY", TINYFISH_API_KEY)
+
+
+def get_tinyfish_base_url() -> str:
+    return os.getenv("TINYFISH_BASE_URL", TINYFISH_BASE_URL).rstrip("/")
+
+
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def _normalize_topic(topic: str) -> str:
+    return " ".join((topic or "").strip().lower().split())
+
+
+def _load_demo_cache() -> dict[str, Any]:
+    if not DEMO_CACHE_PATH.exists():
+        return {"version": 1, "generated_at": None, "entries": {}}
+
+    try:
+        with DEMO_CACHE_PATH.open() as f:
+            data = json.load(f)
+        if isinstance(data, dict) and isinstance(data.get("entries"), dict):
+            return data
+    except Exception:
+        pass
+    return {"version": 1, "generated_at": None, "entries": {}}
+
+
+def _save_demo_cache(cache: dict[str, Any]) -> None:
+    cache["generated_at"] = _utc_now_iso()
+    DEMO_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with DEMO_CACHE_PATH.open("w") as f:
+        json.dump(cache, f, indent=2)
+
+
+def get_cached_sg_sentiment(policy_topic: str) -> list[dict] | None:
+    normalized = _normalize_topic(policy_topic)
+    if not normalized:
+        return None
+
+    cache = _load_demo_cache()
+    entries = cache.get("entries", {})
+
+    direct = entries.get(normalized)
+    if isinstance(direct, dict) and isinstance(direct.get("sentiments"), list):
+        return direct["sentiments"]
+
+    for entry in entries.values():
+        if not isinstance(entry, dict):
+            continue
+        aliases = entry.get("aliases", [])
+        if normalized in {_normalize_topic(x) for x in aliases if isinstance(x, str)}:
+            sentiments = entry.get("sentiments")
+            if isinstance(sentiments, list):
+                return sentiments
+
+    return None
+
+
+def cache_sg_sentiment(
+    policy_topic: str,
+    sentiments: list[dict],
+    *,
+    aliases: list[str] | None = None,
+    metadata: dict[str, Any] | None = None,
+    mode: str = "live",
+) -> None:
+    normalized = _normalize_topic(policy_topic)
+    if not normalized or not sentiments:
+        return
+
+    cache = _load_demo_cache()
+    entries = cache.setdefault("entries", {})
+    existing = entries.get(normalized, {})
+    existing_aliases = existing.get("aliases", []) if isinstance(existing, dict) else []
+    alias_values = [policy_topic, *(aliases or []), *(existing_aliases or [])]
+
+    deduped_aliases = []
+    seen = set()
+    for alias in alias_values:
+        if not isinstance(alias, str):
+            continue
+        key = _normalize_topic(alias)
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        deduped_aliases.append(alias)
+
+    entry = {
+        "topic": policy_topic,
+        "aliases": deduped_aliases,
+        "updated_at": _utc_now_iso(),
+        "mode": mode,
+        "sentiments": sentiments,
+    }
+    if metadata:
+        entry.update(metadata)
+
+    entries[normalized] = entry
+    _save_demo_cache(cache)
 
 
 async def tinyfish_run(url: str, goal: str, browser_profile: str = "lite", timeout: float = 90.0) -> dict:
@@ -15,15 +127,16 @@ async def tinyfish_run(url: str, goal: str, browser_profile: str = "lite", timeo
     Execute a TinyFish synchronous run.
     Returns the run result or a fallback dict on error.
     """
-    if not TINYFISH_API_KEY:
+    api_key = get_tinyfish_api_key()
+    if not api_key:
         return {"error": "No TinyFish API key configured", "fallback": True}
 
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                f"{TINYFISH_BASE_URL}/v1/automation/run",
+                f"{get_tinyfish_base_url()}/v1/automation/run",
                 headers={
-                    "X-API-Key": TINYFISH_API_KEY,
+                    "X-API-Key": api_key,
                     "Content-Type": "application/json",
                 },
                 json={
@@ -48,15 +161,12 @@ async def tinyfish_run(url: str, goal: str, browser_profile: str = "lite", timeo
         return {"error": str(e), "fallback": True}
 
 
-async def scrape_sg_sentiment(policy_topic: str) -> list[dict]:
+async def fetch_sg_sentiment_live(policy_topic: str) -> list[dict]:
     """
     Use TinyFish to scrape real-time public sentiment about a policy topic
     from Singapore forums and social media.
     """
-    # Reddit r/singapore
-    reddit_result = await tinyfish_run(
-        url="https://www.reddit.com/r/singapore/",
-        goal=f"""Search for posts related to: {policy_topic}
+    reddit_goal = f"""Search for posts related to: {policy_topic}
 
 Extract the top 10 most relevant posts. For each post return JSON:
 {{
@@ -73,14 +183,8 @@ Extract the top 10 most relevant posts. For each post return JSON:
 }}
 
 If no relevant posts found, return {{"posts": [], "note": "No posts found for this topic"}}
-Do not click any links. Only extract from the search results page.""",
-        browser_profile="stealth"  # Reddit blocks basic bots
-    )
-
-    # HardwareZone EDMW
-    hwz_result = await tinyfish_run(
-        url="https://forums.hardwarezone.com.sg/forums/eat-drink-man-woman.16/",
-        goal=f"""Look for threads related to: {policy_topic}
+Do not click any links. Only extract from the search results page."""
+    hwz_goal = f"""Look for threads related to: {policy_topic}
 
 Extract up to 10 relevant threads. Return JSON:
 {{
@@ -96,8 +200,19 @@ Extract up to 10 relevant threads. Return JSON:
 }}
 
 If no relevant threads found, return {{"threads": [], "note": "No threads found"}}
-Do not click into any thread. Only extract from the forum listing.""",
-        browser_profile="stealth"
+Do not click into any thread. Only extract from the forum listing."""
+
+    reddit_result, hwz_result = await asyncio.gather(
+        tinyfish_run(
+            url="https://www.reddit.com/r/singapore/",
+            goal=reddit_goal,
+            browser_profile="stealth",
+        ),
+        tinyfish_run(
+            url="https://forums.hardwarezone.com.sg/forums/eat-drink-man-woman.16/",
+            goal=hwz_goal,
+            browser_profile="stealth",
+        ),
     )
 
     sentiments = []
@@ -119,6 +234,29 @@ Do not click into any thread. Only extract from the forum listing.""",
                 "engagement": thread.get("replies", 0),
             })
 
+    return sentiments
+
+
+async def scrape_sg_sentiment(
+    policy_topic: str,
+    *,
+    prefer_cache: bool = True,
+    persist_cache: bool = True,
+    aliases: list[str] | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> list[dict]:
+    """
+    Cache-first TinyFish sentiment lookup for demo topics.
+    Falls back to a live TinyFish fetch and persists successful results locally.
+    """
+    if prefer_cache:
+        cached = get_cached_sg_sentiment(policy_topic)
+        if cached is not None:
+            return cached
+
+    sentiments = await fetch_sg_sentiment_live(policy_topic)
+    if sentiments and persist_cache:
+        cache_sg_sentiment(policy_topic, sentiments, aliases=aliases, metadata=metadata, mode="live")
     return sentiments
 
 

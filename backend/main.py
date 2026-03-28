@@ -22,6 +22,7 @@ from scraper import scrape_sg_sentiment
 from config import get_config
 from scenario_interpreter import interpret_scenario
 from config_generator import generate_segment_config, stream_research_and_generate, get_stored_config
+from demo_data import get_demo_sample, list_demo_samples
 
 # Mock mode: enabled when no OpenAI key is set or key is the placeholder
 _oai_key = os.getenv("OPENAI_API_KEY", "")
@@ -121,6 +122,42 @@ async def interpret_scenario_endpoint(body: dict):
         "region_config": None,
     }
     return {"policy_id": policy_id, "provisions": frame["provisions"], "frame": frame}
+
+
+@app.get("/api/demo-samples")
+async def demo_samples():
+    """Return bundled demo policy snippets and topics."""
+    return {"samples": list_demo_samples()}
+
+
+@app.post("/api/demo-samples/{sample_id}")
+async def load_demo_sample(sample_id: str):
+    """Create a simulation directly from a bundled demo sample."""
+    sample = get_demo_sample(sample_id)
+    if not sample:
+        return {"error": "Demo sample not found"}
+
+    policy_id = str(uuid.uuid4())
+    simulations[policy_id] = {
+        "provisions": sample["provisions"],
+        "results": [],
+        "status": "parsed",
+        "scenario_frame": None,
+        "region_config": None,
+        "demo_topic": sample["topic"],
+        "demo_sample_id": sample["id"],
+    }
+    return {
+        "policy_id": policy_id,
+        "provisions": sample["provisions"],
+        "sample": {
+            "id": sample["id"],
+            "title": sample["title"],
+            "topic": sample["topic"],
+            "snippet": sample["snippet"],
+            "policy_text": sample["policy_text"],
+        },
+    }
 
 
 @app.post("/api/configure-region")
@@ -354,29 +391,33 @@ async def simulate(websocket: WebSocket, policy_id: str):
         # informs the prediction from the start.
         live_adjustment = 0.0
         live_sentiments = []
-        policy_topic = provisions[0]["title"] if provisions else "government policy"
+        policy_topic = sim.get("demo_topic") or (provisions[0]["title"] if provisions else "government policy")
 
-        if not MOCK_MODE:
+        await websocket.send_json({
+            "type": "scraping_start",
+            "data": {"topic": policy_topic},
+        })
+        try:
+            sample = get_demo_sample(sim.get("demo_sample_id")) if sim.get("demo_sample_id") else None
+            live_sentiments = await scrape_sg_sentiment(
+                policy_topic,
+                aliases=(sample or {}).get("aliases", []),
+                metadata={"sample_id": sim.get("demo_sample_id")} if sim.get("demo_sample_id") else None,
+            )
+        except Exception as e:
+            live_sentiments = []
             await websocket.send_json({
-                "type": "scraping_start",
-                "data": {"topic": policy_topic},
+                "type": "scraping_error",
+                "data": {"message": str(e)},
             })
-            try:
-                live_sentiments = await scrape_sg_sentiment(policy_topic)
-            except Exception as e:
-                live_sentiments = []
-                await websocket.send_json({
-                    "type": "scraping_error",
-                    "data": {"message": str(e)},
-                })
 
-            await websocket.send_json({
-                "type": "scraping_complete",
-                "data": {
-                    "sources_scraped": len(live_sentiments),
-                    "sentiments": live_sentiments[:5],
-                },
-            })
+        await websocket.send_json({
+            "type": "scraping_complete",
+            "data": {
+                "sources_scraped": len(live_sentiments),
+                "sentiments": live_sentiments[:5],
+            },
+        })
 
         # Phase 1: Stream individual agent results
         all_results = []

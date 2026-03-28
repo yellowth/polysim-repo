@@ -1,0 +1,255 @@
+[
+  {
+    "id": "housing-grant-boost",
+    "title": "Housing Grant Boost",
+    "topic": "Enhanced Housing Grant Expansion",
+    "aliases": [
+      "housing grant expansion",
+      "first-time buyer grant",
+      "bto grant support"
+    ],
+    "snippet": "Increase first-time buyer housing grants for lower- and middle-income households while accelerating BTO supply in non-mature estates.",
+    "policy_text": "Enhanced Housing Grant Expansion\n\nThe government will raise the Enhanced CPF Housing Grant ceiling from S$80,000 to S$120,000 for first-time buyers with household income up to S$9,000 per month. Additional ballot priority will be given to young families applying for BTO flats in non-mature estates. HDB will also release two extra BTO launches over the next twelve months, with at least 30% of units reserved for first-time applicants.\n\nTo offset near-term affordability pressures, eligible households may defer a portion of their downpayment until key collection. The Ministry of National Development will review resale grant support after one year and publish quarterly updates on queue times and application pressure.",
+    "provisions": [
+      {
+        "id": 1,
+        "title": "Enhanced Housing Grant Expansion",
+        "summary": "Raise the Enhanced CPF Housing Grant ceiling to S$120,000 for eligible first-time buyers with household income up to S$9,000 per month.",
+        "affected_groups": [
+          "young couples",
+          "first-time buyers",
+          "middle-income households"
+        ],
+        "parameters": {
+          "grant_ceiling": 120000,
+          "income_ceiling": 9000
+        }
+      },
+      {
+        "id": 2,
+        "title": "Priority Access for Young Families",
+        "summary": "Reserve more BTO units and ballot priority for young families applying in non-mature estates.",
+        "affected_groups": [
+          "young families",
+          "parents with children",
+          "new households"
+        ],
+        "parameters": {
+          "reserved_units_pct": 30
+        }
+      },
+      {
+        "id": 3,
+        "title": "Accelerated BTO Supply",
+        "summary": "Launch two additional BTO exercises in the next twelve months and track queue-time reductions publicly.",
+        "affected_groups": [
+          "prospective home buyers",
+          "construction sector",
+          "resale flat owners"
+        ],
+        "parameters": {
+          "extra_launches": 2
+        }
+      }
+    ]
+  },
+  {
+    "id": "fare-freeze",
+    "title": "Public Transport Fare Freeze",
+    "topic": "Public Transport Fare Freeze",
+    "aliases": [
+      "transport fare freeze",
+      "bus and mrt fare freeze",
+      "commuter subsidy"
+    ],
+    "snippet": "Freeze MRT and bus fares for one year and use temporary government subsidies to offset rising energy and operating costs.",
+    "policy_text": "Public Transport Fare Freeze\n\nThe Land Transport Authority will hold bus and MRT fares flat for twelve months despite higher electricity and maintenance costs. The government will fund a temporary operating subsidy targeted at basic adult fares, student concessions, and senior concession passes. Operators must maintain service reliability targets and publish monthly updates on crowding and wait times.\n\nA joint review with the Public Transport Council will decide whether the freeze should be extended, tapered, or replaced with targeted off-peak discounts after the twelve-month period.",
+    "provisions": [
+      {
+        "id": 1,
+        "title": "One-Year Fare Freeze",
+        "summary": "Hold public transport fares flat for twelve months instead of passing current cost increases through to commuters.",
+        "affected_groups": [
+          "daily commuters",
+          "students",
+          "seniors"
+        ],
+        "parameters": {
+          "freeze_months": 12
+        }
+      },
+      {
+        "id": 2,
+        "title": "Temporary Operating Subsidy",
+        "summary": "Use government funding to cover part of operators' increased energy and maintenance costs during the freeze period.",
+        "affected_groups": [
+          "transport operators",
+          "taxpayers",
+          "commuters"
+        ],
+        "parameters": {
+          "subsidy_type": "temporary"
+        }
+      },
+      {
+        "id": 3,
+        "title": "Reliability and Crowding Reporting",
+        "summary": "Require operators to maintain service standards and publish monthly reliability and crowding metrics during the subsidy period.",
+        "affected_groups": [
+          "commuters",
+          "transport regulators",
+          "operators"
+        ],
+        "parameters": {}
+      }
+    ]
+  },
+  {
+    "id": "skillsfuture-credit",
+    "title": "SkillsFuture Credit Expansion",
+    "topic": "SkillsFuture Mid-Career Credit Expansion",
+    "aliases": [
+      "skillsfuture credit expansion",
+      "mid-career training grant",
+      "worker retraining support"
+    ],
+    "snippet": "Expand mid-career training credits and wage support for workers aged 40 and above taking approved reskilling programs.",
+    "policy_text": "SkillsFuture Mid-Career Credit Expansion\n\nSingaporeans aged 40 and above will receive an additional S$4,000 in usable SkillsFuture credit for approved diploma, AI, healthcare, and advanced manufacturing courses. Employers that send eligible workers for long-form courses will receive a wage support co-funding scheme to cover part of salary costs during training hours. Course providers must publish completion rates, job placement outcomes, and median wage changes for each subsidised pathway.\n\nThe Ministry of Education and Workforce Singapore will prioritise programmes linked to sectors facing restructuring and persistent vacancies.",
+    "provisions": [
+      {
+        "id": 1,
+        "title": "Additional Mid-Career Credit",
+        "summary": "Give workers aged 40 and above an extra S$4,000 in SkillsFuture credit for approved reskilling programmes.",
+        "affected_groups": [
+          "mid-career workers",
+          "job switchers",
+          "older professionals"
+        ],
+        "parameters": {
+          "credit_amount": 4000,
+          "age_threshold": 40
+        }
+      },
+      {
+        "id": 2,
+        "title": "Employer Wage Support",
+        "summary": "Co-fund salary costs for employers that release eligible workers for longer training programmes.",
+        "affected_groups": [
+          "employers",
+          "mid-career workers",
+          "SMEs"
+        ],
+        "parameters": {}
+      },
+      {
+        "id": 3,
+        "title": "Outcome Reporting",
+        "summary": "Require providers to publish completion, job placement, and wage outcome data for subsidised courses.",
+        "affected_groups": [
+          "trainees",
+          "training providers",
+          "policymakers"
+        ],
+        "parameters": {}
+      }
+    ]
+  },
+  {
+    "id": "preschool-subsidy",
+    "title": "Preschool Subsidy Expansion",
+    "topic": "Preschool Subsidy Expansion",
+    "aliases": [
+      "childcare subsidy expansion",
+      "preschool affordability",
+      "working parents childcare support"
+    ],
+    "snippet": "Expand preschool subsidies for dual-income households and create more full-day childcare slots in large HDB estates.",
+    "policy_text": "Preschool Subsidy Expansion\n\nWorking parents in households earning up to S$14,000 per month will qualify for a larger means-tested preschool subsidy, reducing monthly fees for full-day childcare and anchor operator centres. The Early Childhood Development Agency will fund 8,000 additional full-day childcare places in large HDB estates where waitlists are longest. Centres accepting the enhanced subsidy must cap annual fee increases and publish vacancy information monthly.\n\nThe package also includes a pilot for extended operating hours in selected estates to support shift workers and healthcare staff.",
+    "provisions": [
+      {
+        "id": 1,
+        "title": "Higher Means-Tested Subsidy",
+        "summary": "Increase preschool fee subsidies for qualifying working households earning up to S$14,000 per month.",
+        "affected_groups": [
+          "working parents",
+          "middle-income households",
+          "young families"
+        ],
+        "parameters": {
+          "income_ceiling": 14000
+        }
+      },
+      {
+        "id": 2,
+        "title": "Additional Childcare Capacity",
+        "summary": "Fund 8,000 new full-day childcare places in estates facing long waitlists.",
+        "affected_groups": [
+          "parents with young children",
+          "childcare operators",
+          "residents in large HDB estates"
+        ],
+        "parameters": {
+          "new_places": 8000
+        }
+      },
+      {
+        "id": 3,
+        "title": "Extended Hours Pilot",
+        "summary": "Pilot longer childcare operating hours in selected estates to support parents working shifts or irregular schedules.",
+        "affected_groups": [
+          "shift workers",
+          "healthcare staff",
+          "service workers"
+        ],
+        "parameters": {}
+      }
+    ]
+  },
+  {
+    "id": "carbon-rebate",
+    "title": "Carbon Tax Household Rebate",
+    "topic": "Carbon Tax Household Rebate",
+    "aliases": [
+      "carbon tax rebate",
+      "utility rebate for households",
+      "climate cost offset"
+    ],
+    "snippet": "Raise the carbon tax but return part of the revenue to households through direct utility rebates and energy-efficiency grants.",
+    "policy_text": "Carbon Tax Household Rebate\n\nSingapore will maintain the planned carbon tax increase for large emitters but dedicate a fixed share of annual revenue to direct household utility rebates and energy-efficiency grants for HDB residents. Lower-income households will receive larger quarterly utility credits, while town councils may apply for co-funding to retrofit common areas with more efficient lighting and cooling systems.\n\nThe government will publish an annual carbon tax dividend statement showing how much revenue was collected and how much was returned to households and neighbourhood projects.",
+    "provisions": [
+      {
+        "id": 1,
+        "title": "Household Utility Rebates",
+        "summary": "Return part of carbon tax revenue to households through direct utility bill rebates, with larger credits for lower-income families.",
+        "affected_groups": [
+          "lower-income households",
+          "HDB residents",
+          "all electricity consumers"
+        ],
+        "parameters": {}
+      },
+      {
+        "id": 2,
+        "title": "Energy-Efficiency Grants",
+        "summary": "Provide grants for households and neighbourhood projects that reduce energy use and lower long-term utility costs.",
+        "affected_groups": [
+          "households",
+          "town councils",
+          "retrofit contractors"
+        ],
+        "parameters": {}
+      },
+      {
+        "id": 3,
+        "title": "Carbon Dividend Reporting",
+        "summary": "Publish an annual statement showing tax revenue collected and how much was returned to households and local projects.",
+        "affected_groups": [
+          "taxpayers",
+          "policymakers",
+          "voters"
+        ],
+        "parameters": {}
+      }
+    ]
+  }
+]

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { Search, CheckCircle2, ChevronRight, AlertCircle } from "lucide-react";
 
 const SENTIMENT_STYLES = {
   support: {
@@ -82,6 +83,90 @@ function AgentCard({ agent, isLatest }) {
   );
 }
 
+function TinyFishCard({ entry }) {
+  if (entry._streamType === "scraping_start") {
+    return (
+      <div
+        className="flex gap-2.5 px-3 py-2.5 border-l-2 border-l-amber-500/60 bg-amber-950/20"
+        style={{ animation: "slideIn 0.25s ease-out" }}
+      >
+        <Search className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5 animate-pulse" />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className="text-[10px] font-semibold text-amber-400 uppercase tracking-widest">TinyFish</span>
+            <span className="text-[9px] px-1.5 py-0.5 rounded border bg-amber-500/10 text-amber-500 border-amber-500/25 animate-pulse">
+              scanning
+            </span>
+          </div>
+          <p className="text-[10px] text-slate-400 leading-relaxed">
+            Scraping Reddit &amp; HWZ for live sentiment on{" "}
+            <span className="text-amber-300 italic">{entry.topic || "this policy"}</span>…
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (entry._streamType === "scraping_complete") {
+    const data = entry.data || {};
+    const n = data.sources_scraped || 0;
+    const sentiments = data.sentiments || [];
+    const posCount = sentiments.filter((s) => s.sentiment === "positive").length;
+    const negCount = sentiments.filter((s) => s.sentiment === "negative").length;
+    return (
+      <div
+        className="flex gap-2.5 px-3 py-2.5 border-l-2 border-l-amber-500/60 bg-amber-950/20"
+        style={{ animation: "slideIn 0.25s ease-out" }}
+      >
+        <CheckCircle2 className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+        <div className="flex-1 min-w-0 space-y-1">
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className="text-[10px] font-semibold text-amber-400 uppercase tracking-widest">TinyFish</span>
+            <span className="text-[9px] px-1.5 py-0.5 rounded border bg-amber-500/15 text-amber-400 border-amber-500/25">
+              {n} source{n === 1 ? "" : "s"}
+            </span>
+            {n > 0 && (
+              <span className="text-[9px] font-mono text-slate-500 ml-auto">
+                <span className="text-emerald-400">{posCount}↑</span>
+                {" / "}
+                <span className="text-red-400">{negCount}↓</span>
+              </span>
+            )}
+          </div>
+          {n === 0 && (
+            <p className="text-[10px] text-slate-500 italic">No matching posts found — proceeding with agent priors.</p>
+          )}
+          {sentiments.slice(0, 3).map((s, i) => (
+            <div key={i} className="flex gap-1.5 items-start">
+              <ChevronRight className="w-3 h-3 text-amber-700 shrink-0 mt-0.5" />
+              <span className="text-[10px] text-slate-400 line-clamp-1">
+                <span className="text-slate-600 font-mono">[{s.source}]</span> {s.text}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (entry._streamType === "scraping_error") {
+    return (
+      <div
+        className="flex gap-2.5 px-3 py-2.5 border-l-2 border-l-red-500/40 bg-red-950/10"
+        style={{ animation: "slideIn 0.25s ease-out" }}
+      >
+        <AlertCircle className="w-3.5 h-3.5 text-red-400 shrink-0 mt-0.5" />
+        <div className="flex-1 min-w-0">
+          <span className="text-[10px] font-semibold text-red-400 uppercase tracking-widest">TinyFish</span>
+          <p className="text-[10px] text-slate-500 mt-0.5">Scrape failed — proceeding without live data.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
 export default function AgentStreamFeed({ agentHistory, status, agentCount, totalAgents }) {
   const scrollRef = useRef(null);
   const wasAtBottomRef = useRef(true);
@@ -159,9 +244,13 @@ export default function AgentStreamFeed({ agentHistory, status, agentCount, tota
             </div>
           </div>
         ) : (
-          agentHistory.map((agent, i) => (
-            <AgentCard key={`${agent.persona?.grc}-${i}`} agent={agent} isLatest={i === 0} />
-          ))
+          agentHistory.map((entry, i) =>
+            entry._streamType ? (
+              <TinyFishCard key={`tf-${i}`} entry={entry} />
+            ) : (
+              <AgentCard key={`${entry.persona?.grc}-${i}`} agent={entry} isLatest={i === 0} />
+            )
+          )
         )}
       </div>
 

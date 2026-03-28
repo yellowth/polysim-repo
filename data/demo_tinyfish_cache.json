@@ -1,0 +1,166 @@
+{
+  "version": 1,
+  "generated_at": "2026-03-28T00:00:00+00:00",
+  "entries": {
+    "enhanced housing grant expansion": {
+      "topic": "Enhanced Housing Grant Expansion",
+      "aliases": [
+        "Enhanced Housing Grant Expansion",
+        "housing grant expansion",
+        "first-time buyer grant",
+        "bto grant support"
+      ],
+      "updated_at": "2026-03-28T00:00:00+00:00",
+      "mode": "seed",
+      "sample_id": "housing-grant-boost",
+      "sentiments": [
+        {
+          "source": "reddit",
+          "text": "More grant support helps, but people still want faster BTO completion and fewer repeat balloters ahead of them.",
+          "sentiment": "positive",
+          "engagement": 214
+        },
+        {
+          "source": "reddit",
+          "text": "Dual-income couples say the income ceiling is still tight once childcare and eldercare costs are counted.",
+          "sentiment": "neutral",
+          "engagement": 143
+        },
+        {
+          "source": "hwz",
+          "text": "Forum users support bigger grants but argue resale prices will rise if supply does not expand at the same time.",
+          "sentiment": "negative",
+          "engagement": 96
+        }
+      ]
+    },
+    "public transport fare freeze": {
+      "topic": "Public Transport Fare Freeze",
+      "aliases": [
+        "Public Transport Fare Freeze",
+        "transport fare freeze",
+        "bus and mrt fare freeze",
+        "commuter subsidy"
+      ],
+      "updated_at": "2026-03-28T00:00:00+00:00",
+      "mode": "seed",
+      "sample_id": "fare-freeze",
+      "sentiments": [
+        {
+          "source": "reddit",
+          "text": "Commuters like the freeze because daily transport costs hit students and lower-income workers immediately.",
+          "sentiment": "positive",
+          "engagement": 188
+        },
+        {
+          "source": "hwz",
+          "text": "Some posters worry taxpayers will still pay later if subsidies simply delay a larger fare jump next year.",
+          "sentiment": "negative",
+          "engagement": 121
+        },
+        {
+          "source": "reddit",
+          "text": "Users want reliability guarantees and less crowding if operators are getting public support during the freeze.",
+          "sentiment": "neutral",
+          "engagement": 109
+        }
+      ]
+    },
+    "skillsfuture mid-career credit expansion": {
+      "topic": "SkillsFuture Mid-Career Credit Expansion",
+      "aliases": [
+        "SkillsFuture Mid-Career Credit Expansion",
+        "skillsfuture credit expansion",
+        "mid-career training grant",
+        "worker retraining support"
+      ],
+      "updated_at": "2026-03-28T00:00:00+00:00",
+      "mode": "seed",
+      "sample_id": "skillsfuture-credit",
+      "sentiments": [
+        {
+          "source": "reddit",
+          "text": "Mid-career workers say extra credits are useful only if employers really free up time for longer courses.",
+          "sentiment": "positive",
+          "engagement": 167
+        },
+        {
+          "source": "hwz",
+          "text": "Forum discussion questions whether training subsidies translate into better pay or just more certificates.",
+          "sentiment": "negative",
+          "engagement": 83
+        },
+        {
+          "source": "reddit",
+          "text": "People support publishing job-placement outcomes so weaker programmes can be filtered out faster.",
+          "sentiment": "positive",
+          "engagement": 132
+        }
+      ]
+    },
+    "preschool subsidy expansion": {
+      "topic": "Preschool Subsidy Expansion",
+      "aliases": [
+        "Preschool Subsidy Expansion",
+        "childcare subsidy expansion",
+        "preschool affordability",
+        "working parents childcare support"
+      ],
+      "updated_at": "2026-03-28T00:00:00+00:00",
+      "mode": "seed",
+      "sample_id": "preschool-subsidy",
+      "sentiments": [
+        {
+          "source": "reddit",
+          "text": "Parents welcome larger subsidies, especially for dual-income households squeezed by childcare fees and mortgages.",
+          "sentiment": "positive",
+          "engagement": 241
+        },
+        {
+          "source": "hwz",
+          "text": "Some commenters say more subsidy is good but the real pressure point is still the shortage of convenient full-day slots.",
+          "sentiment": "neutral",
+          "engagement": 74
+        },
+        {
+          "source": "reddit",
+          "text": "Shift workers strongly support extended hours because standard centre timings do not match hospital and service jobs.",
+          "sentiment": "positive",
+          "engagement": 156
+        }
+      ]
+    },
+    "carbon tax household rebate": {
+      "topic": "Carbon Tax Household Rebate",
+      "aliases": [
+        "Carbon Tax Household Rebate",
+        "carbon tax rebate",
+        "utility rebate for households",
+        "climate cost offset"
+      ],
+      "updated_at": "2026-03-28T00:00:00+00:00",
+      "mode": "seed",
+      "sample_id": "carbon-rebate",
+      "sentiments": [
+        {
+          "source": "reddit",
+          "text": "Some residents accept the tax increase if utility rebates are visible and lower-income households get larger offsets.",
+          "sentiment": "positive",
+          "engagement": 154
+        },
+        {
+          "source": "hwz",
+          "text": "Forum users remain skeptical that rebates will fully cover pass-through costs from businesses and utilities.",
+          "sentiment": "negative",
+          "engagement": 88
+        },
+        {
+          "source": "reddit",
+          "text": "People want annual reporting on how much revenue is returned so the policy does not look like a pure tax grab.",
+          "sentiment": "neutral",
+          "engagement": 117
+        }
+      ]
+    }
+  }
+}

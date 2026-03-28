@@ -55,23 +55,24 @@ export default function useSimulation() {
       }
 
       if (msg.type === "scraping_start") {
-        setPredictionLog((prev) => [
+        setAgentHistory((prev) => [
+          { _streamType: "scraping_start", topic: msg.data?.topic },
           ...prev,
-          { type: "scraping_start", topic: msg.data?.topic },
         ]);
       }
 
       if (msg.type === "scraping_complete") {
-        setPredictionLog((prev) => [
-          ...prev,
-          { type: "scraping_complete", data: msg.data },
+        // Replace the scraping_start placeholder with the full result
+        setAgentHistory((prev) => [
+          { _streamType: "scraping_complete", data: msg.data },
+          ...prev.filter((e) => e._streamType !== "scraping_start"),
         ]);
       }
 
       if (msg.type === "scraping_error") {
-        setPredictionLog((prev) => [
-          ...prev,
-          { type: "scraping_error", message: msg.data?.message },
+        setAgentHistory((prev) => [
+          { _streamType: "scraping_error", message: msg.data?.message },
+          ...prev.filter((e) => e._streamType !== "scraping_start"),
         ]);
       }
 

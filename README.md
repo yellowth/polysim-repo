@@ -259,6 +259,21 @@ npm run dev
 
 ### Environment variables
 
+## Demo Cache
+
+For judge/demo flows, the repo now ships a small local TinyFish seed cache plus bundled demo policy samples:
+
+- [`data/demo_policy_samples.json`](/Users/tian/GitHub/polisim/polisim-repo/data/demo_policy_samples.json): five pre-parsed demo policies/snippets
+- [`data/demo_tinyfish_cache.json`](/Users/tian/GitHub/polisim/polisim-repo/data/demo_tinyfish_cache.json): cache-first TinyFish sentiment payloads keyed by demo topic
+
+Useful paths:
+
+- `GET /api/demo-samples` lists bundled demo topics/snippets.
+- `POST /api/demo-samples/{sample_id}` creates a simulation directly from a bundled sample, bypassing parse latency.
+- `python backend/prewarm_demo_cache.py` refreshes the local sentiment cache from live TinyFish for all bundled samples when `TINYFISH_API_KEY` is configured.
+
+The simulation WebSocket now checks the local TinyFish cache first, then falls back to a live TinyFish fetch and writes successful responses back into the same JSON cache file.
+
 Expected by the code:
 
 - `OPENAI_API_KEY`

@@ -6,7 +6,6 @@ import LiveMarketChart from "./LiveMarketChart";
 import AgentStreamFeed from "./AgentStreamFeed";
 import {
   Radio,
-  ChevronRight,
   Search,
   CheckCircle2,
   Loader2,
@@ -15,49 +14,6 @@ import {
 } from "lucide-react";
 
 function PredictionLogLine({ entry }) {
-  if (entry.type === "scraping_start") {
-    return (
-      <div className="flex gap-2 text-xs items-start">
-        <Search className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5 animate-pulse" />
-        <span className="text-amber-400">
-          TinyFish scanning Reddit &amp; HWZ for public sentiment on{" "}
-          <span className="text-amber-300 font-medium">{entry.topic || "this policy"}</span>…
-        </span>
-      </div>
-    );
-  }
-
-  if (entry.type === "scraping_complete") {
-    const data = entry.data || {};
-    const n = data.sources_scraped || 0;
-    return (
-      <div className="space-y-1">
-        <div className="flex gap-2 text-xs items-start">
-          <CheckCircle2 className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
-          <span className="text-amber-300">
-            TinyFish collected {n} live source{n === 1 ? "" : "s"}.
-            {n === 0 && " No matching posts found — proceeding with agent priors."}
-          </span>
-        </div>
-        {(data.sentiments || []).slice(0, 3).map((s, i) => (
-          <div key={i} className="flex gap-2 text-xs items-start ml-5">
-            <ChevronRight className="w-3 h-3 text-amber-600 shrink-0 mt-0.5" />
-            <span className="text-slate-400">[{s.source}] {s.text}</span>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  if (entry.type === "scraping_error") {
-    return (
-      <div className="flex gap-2 text-xs items-start">
-        <Search className="w-3.5 h-3.5 text-red-400 shrink-0 mt-0.5" />
-        <span className="text-red-400">TinyFish scrape failed — proceeding without live data.</span>
-      </div>
-    );
-  }
-
   if (entry.type === "market_update") {
     return (
       <div className="flex gap-2 text-xs items-start">
