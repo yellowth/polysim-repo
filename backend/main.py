@@ -14,8 +14,9 @@ from mock_mode import mock_parse_provisions, mock_agent_response
 from backtest import run_backtest
 from real_data import get_enriched_grc_profiles, load_pop_ethnicity, load_income_distribution
 
-# Mock mode: enabled when no OpenAI key is set
-MOCK_MODE = not os.getenv("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY", "").startswith("sk-...")
+# Mock mode: enabled when no OpenAI key is set or key is the placeholder
+_oai_key = os.getenv("OPENAI_API_KEY", "")
+MOCK_MODE = not _oai_key or _oai_key == "sk-..." or len(_oai_key) < 20
 
 app = FastAPI(title="Polysim API")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
