@@ -1,17 +1,431 @@
 {
-  "Ang Mo Kio GRC": {"pop": 187634, "chinese": 0.76, "malay": 0.12, "indian": 0.09, "others": 0.03, "center": [1.3691, 103.8454], "mp_party": "PAP", "seats": 5},
-  "Tanjong Pagar GRC": {"pop": 148927, "chinese": 0.81, "malay": 0.08, "indian": 0.08, "others": 0.03, "center": [1.2764, 103.8430], "mp_party": "PAP", "seats": 5},
-  "Aljunied GRC": {"pop": 149015, "chinese": 0.62, "malay": 0.15, "indian": 0.18, "others": 0.05, "center": [1.3200, 103.8860], "mp_party": "WP", "seats": 5},
-  "Marine Parade GRC": {"pop": 146887, "chinese": 0.73, "malay": 0.13, "indian": 0.11, "others": 0.03, "center": [1.3050, 103.9050], "mp_party": "PAP", "seats": 5},
-  "West Coast GRC": {"pop": 145202, "chinese": 0.71, "malay": 0.14, "indian": 0.11, "others": 0.04, "center": [1.3100, 103.7500], "mp_party": "PAP", "seats": 5},
-  "Marsiling-Yew Tee GRC": {"pop": 154032, "chinese": 0.58, "malay": 0.22, "indian": 0.15, "others": 0.05, "center": [1.4300, 103.7700], "mp_party": "PAP", "seats": 4},
-  "Tampines GRC": {"pop": 157543, "chinese": 0.68, "malay": 0.16, "indian": 0.12, "others": 0.04, "center": [1.3530, 103.9440], "mp_party": "PAP", "seats": 5},
-  "Jurong GRC": {"pop": 160231, "chinese": 0.59, "malay": 0.20, "indian": 0.16, "others": 0.05, "center": [1.3400, 103.7000], "mp_party": "PAP", "seats": 5},
-  "Bishan-Toa Payoh GRC": {"pop": 142876, "chinese": 0.78, "malay": 0.10, "indian": 0.09, "others": 0.03, "center": [1.3350, 103.8500], "mp_party": "PAP", "seats": 4},
-  "East Coast GRC": {"pop": 121443, "chinese": 0.74, "malay": 0.11, "indian": 0.12, "others": 0.03, "center": [1.3150, 103.9350], "mp_party": "PAP", "seats": 5},
-  "Sengkang GRC": {"pop": 137980, "chinese": 0.72, "malay": 0.13, "indian": 0.11, "others": 0.04, "center": [1.3920, 103.8950], "mp_party": "WP", "seats": 4},
-  "Nee Soon GRC": {"pop": 139876, "chinese": 0.64, "malay": 0.18, "indian": 0.14, "others": 0.04, "center": [1.4200, 103.8350], "mp_party": "PAP", "seats": 5},
-  "Holland-Bukit Timah GRC": {"pop": 114356, "chinese": 0.79, "malay": 0.07, "indian": 0.10, "others": 0.04, "center": [1.3300, 103.7900], "mp_party": "PAP", "seats": 4},
-  "Chua Chu Kang GRC": {"pop": 148765, "chinese": 0.63, "malay": 0.19, "indian": 0.14, "others": 0.04, "center": [1.3850, 103.7450], "mp_party": "PAP", "seats": 4},
-  "Sembawang GRC": {"pop": 152341, "chinese": 0.66, "malay": 0.17, "indian": 0.13, "others": 0.04, "center": [1.4450, 103.8200], "mp_party": "PAP", "seats": 5}
+  "Jurong East-Bukit Batok GRC": {
+    "pop": 150000,
+    "chinese": 0.72,
+    "malay": 0.13,
+    "indian": 0.11,
+    "others": 0.04,
+    "seats": 5,
+    "center": [
+      1.3383,
+      103.7527
+    ],
+    "mp_party": "PAP"
+  },
+  "West Coast-Jurong West GRC": {
+    "pop": 160000,
+    "chinese": 0.65,
+    "malay": 0.16,
+    "indian": 0.14,
+    "others": 0.05,
+    "seats": 5,
+    "center": [
+      1.16,
+      103.7409
+    ],
+    "mp_party": "PAP"
+  },
+  "Kebun Baru SMC": {
+    "pop": 35000,
+    "chinese": 0.77,
+    "malay": 0.1,
+    "indian": 0.1,
+    "others": 0.03,
+    "seats": 1,
+    "center": [
+      1.3761,
+      103.8257
+    ],
+    "mp_party": "PAP"
+  },
+  "Yio Chu Kang SMC": {
+    "pop": 35000,
+    "chinese": 0.72,
+    "malay": 0.13,
+    "indian": 0.11,
+    "others": 0.04,
+    "seats": 1,
+    "center": [
+      1.3793,
+      103.8397
+    ],
+    "mp_party": "PAP"
+  },
+  "Queenstown SMC": {
+    "pop": 35000,
+    "chinese": 0.75,
+    "malay": 0.1,
+    "indian": 0.11,
+    "others": 0.04,
+    "seats": 1,
+    "center": [
+      1.292,
+      103.8075
+    ],
+    "mp_party": "PAP"
+  },
+  "Tanjong Pagar GRC": {
+    "pop": 149000,
+    "chinese": 0.81,
+    "malay": 0.08,
+    "indian": 0.08,
+    "others": 0.03,
+    "seats": 5,
+    "center": [
+      1.293,
+      103.8147
+    ],
+    "mp_party": "PAP"
+  },
+  "Radin Mas SMC": {
+    "pop": 35000,
+    "chinese": 0.68,
+    "malay": 0.14,
+    "indian": 0.13,
+    "others": 0.05,
+    "seats": 1,
+    "center": [
+      1.2137,
+      103.8347
+    ],
+    "mp_party": "PAP"
+  },
+  "Potong Pasir SMC": {
+    "pop": 35000,
+    "chinese": 0.72,
+    "malay": 0.13,
+    "indian": 0.11,
+    "others": 0.04,
+    "seats": 1,
+    "center": [
+      1.3349,
+      103.8745
+    ],
+    "mp_party": "PAP"
+  },
+  "Punggol GRC": {
+    "pop": 165000,
+    "chinese": 0.73,
+    "malay": 0.12,
+    "indian": 0.11,
+    "others": 0.04,
+    "seats": 4,
+    "center": [
+      1.4072,
+      103.913
+    ],
+    "mp_party": "PAP"
+  },
+  "Jalan Kayu SMC": {
+    "pop": 35000,
+    "chinese": 0.72,
+    "malay": 0.13,
+    "indian": 0.11,
+    "others": 0.04,
+    "seats": 1,
+    "center": [
+      1.4152,
+      103.8789
+    ],
+    "mp_party": "PAP"
+  },
+  "Aljunied GRC": {
+    "pop": 149000,
+    "chinese": 0.62,
+    "malay": 0.15,
+    "indian": 0.18,
+    "others": 0.05,
+    "seats": 5,
+    "center": [
+      1.3593,
+      103.8958
+    ],
+    "mp_party": "WP"
+  },
+  "Ang Mo Kio GRC": {
+    "pop": 188000,
+    "chinese": 0.76,
+    "malay": 0.12,
+    "indian": 0.09,
+    "others": 0.03,
+    "seats": 5,
+    "center": [
+      1.3756,
+      103.8674
+    ],
+    "mp_party": "PAP"
+  },
+  "Bukit Gombak SMC": {
+    "pop": 35000,
+    "chinese": 0.65,
+    "malay": 0.18,
+    "indian": 0.13,
+    "others": 0.04,
+    "seats": 1,
+    "center": [
+      1.3563,
+      103.7585
+    ],
+    "mp_party": "PAP"
+  },
+  "Chua Chu Kang GRC": {
+    "pop": 149000,
+    "chinese": 0.63,
+    "malay": 0.19,
+    "indian": 0.14,
+    "others": 0.04,
+    "seats": 4,
+    "center": [
+      1.3979,
+      103.6611
+    ],
+    "mp_party": "PAP"
+  },
+  "Holland-Bukit Timah GRC": {
+    "pop": 114000,
+    "chinese": 0.79,
+    "malay": 0.07,
+    "indian": 0.1,
+    "others": 0.04,
+    "seats": 4,
+    "center": [
+      1.3584,
+      103.7978
+    ],
+    "mp_party": "PAP"
+  },
+  "Jurong Central GRC": {
+    "pop": 155000,
+    "chinese": 0.59,
+    "malay": 0.2,
+    "indian": 0.16,
+    "others": 0.05,
+    "seats": 5,
+    "center": [
+      1.3477,
+      103.7282
+    ],
+    "mp_party": "PAP"
+  },
+  "Jalan Besar GRC": {
+    "pop": 137000,
+    "chinese": 0.71,
+    "malay": 0.11,
+    "indian": 0.13,
+    "others": 0.05,
+    "seats": 4,
+    "center": [
+      1.2821,
+      103.8739
+    ],
+    "mp_party": "PAP"
+  },
+  "Pioneer SMC": {
+    "pop": 35000,
+    "chinese": 0.57,
+    "malay": 0.21,
+    "indian": 0.17,
+    "others": 0.05,
+    "seats": 1,
+    "center": [
+      1.3386,
+      103.7012
+    ],
+    "mp_party": "PAP"
+  },
+  "Marymount SMC": {
+    "pop": 35000,
+    "chinese": 0.72,
+    "malay": 0.13,
+    "indian": 0.11,
+    "others": 0.04,
+    "seats": 1,
+    "center": [
+      1.3562,
+      103.8419
+    ],
+    "mp_party": "PAP"
+  },
+  "Bishan-Toa Payoh GRC": {
+    "pop": 143000,
+    "chinese": 0.78,
+    "malay": 0.1,
+    "indian": 0.09,
+    "others": 0.03,
+    "seats": 4,
+    "center": [
+      1.355,
+      103.8292
+    ],
+    "mp_party": "PAP"
+  },
+  "Hougang SMC": {
+    "pop": 35000,
+    "chinese": 0.69,
+    "malay": 0.14,
+    "indian": 0.13,
+    "others": 0.04,
+    "seats": 1,
+    "center": [
+      1.3686,
+      103.8937
+    ],
+    "mp_party": "WP"
+  },
+  "Bukit Panjang SMC": {
+    "pop": 35000,
+    "chinese": 0.72,
+    "malay": 0.13,
+    "indian": 0.11,
+    "others": 0.04,
+    "seats": 1,
+    "center": [
+      1.376,
+      103.7737
+    ],
+    "mp_party": "PAP"
+  },
+  "Sengkang GRC": {
+    "pop": 138000,
+    "chinese": 0.72,
+    "malay": 0.13,
+    "indian": 0.11,
+    "others": 0.04,
+    "seats": 4,
+    "center": [
+      1.3884,
+      103.8954
+    ],
+    "mp_party": "WP"
+  },
+  "Marsiling-Yew Tee GRC": {
+    "pop": 154000,
+    "chinese": 0.58,
+    "malay": 0.22,
+    "indian": 0.15,
+    "others": 0.05,
+    "seats": 4,
+    "center": [
+      1.4271,
+      103.7632
+    ],
+    "mp_party": "PAP"
+  },
+  "Nee Soon GRC": {
+    "pop": 140000,
+    "chinese": 0.64,
+    "malay": 0.18,
+    "indian": 0.14,
+    "others": 0.04,
+    "seats": 5,
+    "center": [
+      1.4445,
+      103.8611
+    ],
+    "mp_party": "PAP"
+  },
+  "Sembawang West SMC": {
+    "pop": 35000,
+    "chinese": 0.72,
+    "malay": 0.13,
+    "indian": 0.11,
+    "others": 0.04,
+    "seats": 1,
+    "center": [
+      1.4434,
+      103.7991
+    ],
+    "mp_party": "PAP"
+  },
+  "Tampines Changkat SMC": {
+    "pop": 35000,
+    "chinese": 0.72,
+    "malay": 0.13,
+    "indian": 0.11,
+    "others": 0.04,
+    "seats": 1,
+    "center": [
+      1.3478,
+      103.9515
+    ],
+    "mp_party": "PAP"
+  },
+  "Mountbatten SMC": {
+    "pop": 35000,
+    "chinese": 0.72,
+    "malay": 0.13,
+    "indian": 0.11,
+    "others": 0.04,
+    "seats": 1,
+    "center": [
+      1.2973,
+      103.8816
+    ],
+    "mp_party": "PAP"
+  },
+  "Sembawang GRC": {
+    "pop": 152000,
+    "chinese": 0.66,
+    "malay": 0.17,
+    "indian": 0.13,
+    "others": 0.04,
+    "seats": 5,
+    "center": [
+      1.4521,
+      103.8053
+    ],
+    "mp_party": "PAP"
+  },
+  "East Coast GRC": {
+    "pop": 121000,
+    "chinese": 0.74,
+    "malay": 0.11,
+    "indian": 0.12,
+    "others": 0.03,
+    "seats": 5,
+    "center": [
+      1.3147,
+      103.9424
+    ],
+    "mp_party": "PAP"
+  },
+  "Marine Parade-Braddell Heights GRC": {
+    "pop": 155000,
+    "chinese": 0.73,
+    "malay": 0.13,
+    "indian": 0.11,
+    "others": 0.03,
+    "seats": 5,
+    "center": [
+      1.3263,
+      103.8936
+    ],
+    "mp_party": "PAP"
+  },
+  "Tampines GRC": {
+    "pop": 158000,
+    "chinese": 0.68,
+    "malay": 0.16,
+    "indian": 0.12,
+    "others": 0.04,
+    "seats": 5,
+    "center": [
+      1.3617,
+      103.9377
+    ],
+    "mp_party": "PAP"
+  },
+  "Pasir Ris-Changi GRC": {
+    "pop": 175000,
+    "chinese": 0.7,
+    "malay": 0.15,
+    "indian": 0.11,
+    "others": 0.04,
+    "seats": 5,
+    "center": [
+      1.3681,
+      103.9807
+    ],
+    "mp_party": "PAP"
+  }
 }

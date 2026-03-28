@@ -4,11 +4,25 @@ export default function useSimulation() {
   const [status, setStatus] = useState("idle"); // idle | connecting | simulating | complete
   const [grcSentiment, setGrcSentiment] = useState({});
   const [agentCount, setAgentCount] = useState(0);
+  const [totalAgents, setTotalAgents] = useState(100);
   const [contagionRound, setContagionRound] = useState(-1);
   const [votePrediction, setVotePrediction] = useState(null);
+  const [latestAgent, setLatestAgent] = useState(null);
+  const [marketPrice, setMarketPrice] = useState(null);
+  const [priceHistory, setPriceHistory] = useState([]);
+  const [liveSentiment, setLiveSentiment] = useState(null);
+  // New: live agent feed and unified chart data
+  const [agentHistory, setAgentHistory] = useState([]);
+  const [chartData, setChartData] = useState([]);
+  const [predictionLog, setPredictionLog] = useState([]);
   const wsRef = useRef(null);
 
-  const connect = useCallback((policyId) => {
+  // Running bet totals for live price estimate during agent evaluation
+  const yesBetsRef = useRef(0);
+  const noBetsRef = useRef(0);
+  const agentCountRef = useRef(0);
+
+  const connect = useCallback((policyId, agentCountOverride) => {
     if (wsRef.current) wsRef.current.close();
 
     setStatus("connecting");
@@ -16,8 +30,19 @@ export default function useSimulation() {
     setAgentCount(0);
     setContagionRound(-1);
     setVotePrediction(null);
+    setLatestAgent(null);
+    setMarketPrice(null);
+    setPriceHistory([]);
+    setLiveSentiment(null);
+    setAgentHistory([]);
+    setChartData([]);
+    setPredictionLog([]);
+    yesBetsRef.current = 0;
+    noBetsRef.current = 0;
+    agentCountRef.current = 0;
 
-    const ws = new WebSocket(`ws://localhost:8000/ws/simulate/${policyId}`);
+    const agents = agentCountOverride || 100;
+    const ws = new WebSocket(`ws://localhost:8000/ws/simulate/${policyId}?agents=${agents}`);
     wsRef.current = ws;
 
     ws.onopen = () => setStatus("simulating");
@@ -25,11 +50,27 @@ export default function useSimulation() {
     ws.onmessage = (event) => {
       const msg = JSON.parse(event.data);
 
+      if (msg.type === "config") {
+        setTotalAgents(msg.data.total_agents || 100);
+      }
+
       if (msg.type === "agent_result") {
-        setAgentCount((c) => c + 1);
+        // Accumulate running bet totals for live price estimate
+        yesBetsRef.current += msg.data.yes_bet || 0;
+        noBetsRef.current += msg.data.no_bet || 0;
+        agentCountRef.current += 1;
+        const count = agentCountRef.current;
+
+        setAgentCount(count);
+        setLatestAgent(msg.data);
+
+        // Keep rolling history of last 60 agents (newest first)
+        setAgentHistory((prev) => [msg.data, ...prev].slice(0, 60));
+
+        // Update GRC sentiment
         const grc = msg.data.persona.grc;
         setGrcSentiment((prev) => {
-          const existing = prev[grc] || { support: 0, neutral: 0, reject: 0, total: 0, agents: [] };
+          const existing = prev[grc] || { support: 0, neutral: 0, reject: 0, total: 0, agents: [], yes_bets: 0, no_bets: 0 };
           const weight = msg.data.persona.weight || 1;
           return {
             ...prev,
@@ -38,29 +79,116 @@ export default function useSimulation() {
               [msg.data.sentiment]: existing[msg.data.sentiment] + weight,
               total: existing.total + weight,
               agents: [...existing.agents, msg.data],
-              support_pct: null,
+              yes_bets: existing.yes_bets + (msg.data.yes_bet || 0),
+              no_bets: existing.no_bets + (msg.data.no_bet || 0),
             },
           };
         });
+
+        // Sample live price every 4 agents
+        if (count % 4 === 0 || count === 1) {
+          const total = yesBetsRef.current + noBetsRef.current;
+          if (total > 0) {
+            const price = (yesBetsRef.current / total) * 100;
+            setChartData((prev) => [
+              ...prev,
+              { x: count, price: Math.round(price * 10) / 10, phase: "agents", label: `${count}` },
+            ]);
+          }
+        }
+      }
+
+      if (msg.type === "market_update") {
+        setMarketPrice(msg.data);
+        setPriceHistory((prev) => [...prev, { round: msg.round, ...msg.data }]);
+        setPredictionLog((prev) => [
+          ...prev,
+          {
+            type: "market_update",
+            round: msg.round,
+            market: msg.data,
+          },
+        ]);
+        // Add initial market price as a named point
+        setChartData((prev) => [
+          ...prev,
+          {
+            x: agentCountRef.current + 1,
+            price: Math.round(msg.data.market_price * 1000) / 10,
+            phase: "market",
+            label: "Market",
+          },
+        ]);
+      }
+
+      if (msg.type === "live_sentiment") {
+        setLiveSentiment(msg.data);
+        setPredictionLog((prev) => [
+          ...prev,
+          {
+            type: "live_sentiment",
+            data: msg.data,
+          },
+        ]);
       }
 
       if (msg.type === "contagion_round") {
         setContagionRound(msg.round);
         setGrcSentiment(msg.data);
+        if (msg.market) {
+          setMarketPrice(msg.market);
+          setPriceHistory((prev) => [...prev, { round: msg.round + 1, ...msg.market }]);
+          setChartData((prev) => [
+            ...prev,
+            {
+              x: agentCountRef.current + 2 + msg.round,
+              price: Math.round(msg.market.market_price * 1000) / 10,
+              phase: `round${msg.round + 1}`,
+              label: `R${msg.round + 1}`,
+            },
+          ]);
+        }
+        setPredictionLog((prev) => [
+          ...prev,
+          {
+            type: "contagion_round",
+            round: msg.round,
+            market: msg.market,
+          },
+        ]);
       }
 
       if (msg.type === "vote_prediction") {
         setVotePrediction(msg.data);
+        if (msg.data.market) {
+          setMarketPrice(msg.data.market);
+        }
+        if (msg.data.price_history) {
+          setPriceHistory(msg.data.price_history);
+        }
+        setPredictionLog((prev) => [
+          ...prev,
+          {
+            type: "vote_prediction",
+            data: msg.data,
+          },
+        ]);
       }
 
       if (msg.type === "complete") {
         setStatus("complete");
+        setPredictionLog((prev) => [...prev, { type: "complete" }]);
       }
     };
 
     ws.onerror = () => setStatus("idle");
-    ws.onclose = () => {};
+    ws.onclose = () => setStatus((s) => s === "simulating" ? "complete" : s);
   }, []);
 
-  return { status, grcSentiment, agentCount, contagionRound, votePrediction, connect };
+  return {
+    status, grcSentiment, agentCount, totalAgents, contagionRound,
+    votePrediction, latestAgent, marketPrice, priceHistory, liveSentiment,
+    agentHistory, chartData, predictionLog,
+    connect,
+  };
 }

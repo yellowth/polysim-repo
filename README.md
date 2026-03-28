@@ -1,327 +1,354 @@
-# 🐟 Polysim — Prediction Market in Silico
+# Polysim
 
-> "14 million scenarios, only one you win."
-> Upload a policy → watch a simulated population react in real time.
+Prediction-market-style policy and scenario simulation for Singapore-focused demographic agents.
 
----
+The current app lets a user:
 
-## ELI5: What This Does
+1. Optionally generate a custom segment configuration from a natural-language description.
+2. Provide input as a free-form scenario, pasted policy text, or uploaded `PDF`/`TXT`/`MD`.
+3. Parse that input into structured provisions.
+4. Build weighted personas from constituency profiles plus demographic config.
+5. Run agent evaluations in mock mode or via OpenAI.
+6. Convert agent opinions into bets, compute a market price, apply three contagion rounds, and stream results over WebSocket.
+7. Inspect constituency sentiment, agent quotes, vote breakdown, and price evolution in the frontend.
 
-You paste/upload a policy document (like "raise GST to 10%"). Polysim:
+## Audit Summary
 
-1. **Reads it** → GPT-4o extracts the key provisions ("GST increase", "CPF change", etc.)
-2. **Spawns 40 AI agents** → each represents a real demographic slice of Singapore (Chinese nurse in Ang Mo Kio, aged 35; Malay retiree in Jurong, aged 68; etc.)
-3. **Each agent reads the policy and reacts** → "Wah this one help me lah" or "This one don't benefit me at all"
-4. **Social contagion** → agents influence each other (same race/neighborhood/age = stronger ties), sentiment ripples across communities over 3 rounds
-5. **Dashboard shows results** → Singapore map lights up green/amber/red per constituency, agent quotes, vote prediction, demographic breakdown
+This README reflects the code as it exists now, not the earlier design intent.
 
-It's like running an election before the election happens.
+Key audit findings:
 
----
+- The app now has a three-stage UI flow: region/segment config, scenario/policy input, then simulation.
+- Backend support exists for scenario interpretation and streaming region-config generation, but the older docs did not cover those paths.
+- Persona generation usually returns roughly `120%` of the requested target count. For example, `build_personas(100)` currently returns `120`, and `build_personas(200)` returns `240`.
+- The repository currently ships `33` constituency profiles in [`data/grc_profiles.json`](/Users/tian/GitHub/polisim/polisim-repo/data/grc_profiles.json).
+- Region config overrides change demographic segments and age weights, but they do not fully swap geography. Persona loading still reads the active global profiles file from [`backend/config.py`](/Users/tian/GitHub/polisim/polisim-repo/backend/config.py), and the frontend map remains Singapore-specific.
+- TinyFish base URL is hardcoded to `https://api.tinyfish.ai` in [`backend/scraper.py`](/Users/tian/GitHub/polisim/polisim-repo/backend/scraper.py); `TINYFISH_BASE_URL` in [`.env.example`](/Users/tian/GitHub/polisim/polisim-repo/.env.example) is not currently consumed.
+- The frontend uses absolute `http://localhost:8000` and `ws://localhost:8000` URLs in active components instead of the Vite proxy config.
+- [`backend/contagion.py`](/Users/tian/GitHub/polisim/polisim-repo/backend/contagion.py) and [`frontend/src/components/PolicyUpload.jsx`](/Users/tian/GitHub/polisim/polisim-repo/frontend/src/components/PolicyUpload.jsx) are legacy files that are present in-tree but not used by the main app flow.
 
-## Architecture (How The Pieces Fit)
+## Current Architecture
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    FRONTEND (React + Vite)               │
-│  localhost:3000                                          │
-│                                                          │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌─────────┐ │
-│  │ Policy   │→ │ Map View │  │ Side     │  │ Lever   │ │
-│  │ Upload   │  │ (Leaflet)│  │ Panel    │  │ Controls│ │
-│  └────┬─────┘  └────▲─────┘  └────▲─────┘  └────┬────┘ │
-│       │              │             │              │      │
-│       ▼              └─────────────┘              │      │
-│  useSimulation.js (WebSocket client)              │      │
-└───────┬───────────────────────────────────────────┼──────┘
-        │ HTTP POST /api/upload                     │ POST /api/adjust
-        │ WS /ws/simulate/{id}                      │
-        ▼                                           ▼
-┌─────────────────────────────────────────────────────────┐
-│                    BACKEND (Python FastAPI)               │
-│  localhost:8000                                          │
-│                                                          │
-│  ┌──────────────┐   ┌───────────────┐   ┌─────────────┐ │
-│  │ policy_      │   │ agent_        │   │ contagion   │ │
-│  │ parser.py    │   │ engine.py     │   │ _v2.py      │ │
-│  │ (GPT-4o)     │   │ (40× GPT-4o) │   │ (O(n) fast) │ │
-│  └──────┬───────┘   └──────┬────────┘   └──────┬──────┘ │
-│         │                  │                    │        │
-│         ▼                  ▼                    ▼        │
-│  ┌──────────────┐   ┌───────────────┐   ┌─────────────┐ │
-│  │ demographics │   │ backtest.py   │   │ real_data   │ │
-│  │ .py          │   │ (vs GE2020)   │   │ .py         │ │
-│  └──────────────┘   └───────────────┘   └─────────────┘ │
-│                                                          │
-│  ┌──────────────┐   ┌───────────────┐                    │
-│  │ scraper.py   │   │ levers.py     │                    │
-│  │ (TinyFish)   │   │ (policy       │                    │
-│  │              │   │  adjustments) │                    │
-│  └──────────────┘   └───────────────┘                    │
-└──────────────────────────────────────────────────────────┘
-        │
-        ▼
-┌──────────────────────┐    ┌──────────────────────────────┐
-│  data/ (local CSVs)  │    │  External APIs               │
-│  • Census 2020       │    │  • OpenAI GPT-4o             │
-│  • GE2020 results    │    │  • TinyFish (web scraping)   │
-│  • GRC boundaries    │    │  • 🔌 MiroFish (plug in here)│
-│  • Income data       │    │                              │
-└──────────────────────┘    └──────────────────────────────┘
-```
+### Frontend
 
----
+- React 18 + Vite + Tailwind.
+- Main app entry: [`frontend/src/App.jsx`](/Users/tian/GitHub/polisim/polisim-repo/frontend/src/App.jsx).
+- Simulation state and WebSocket handling: [`frontend/src/hooks/useSimulation.js`](/Users/tian/GitHub/polisim/polisim-repo/frontend/src/hooks/useSimulation.js).
+- Key UI stages:
+  - [`frontend/src/components/RegionConfigPanel.jsx`](/Users/tian/GitHub/polisim/polisim-repo/frontend/src/components/RegionConfigPanel.jsx): streaming SSE research/config generation.
+  - [`frontend/src/components/ScenarioInput.jsx`](/Users/tian/GitHub/polisim/polisim-repo/frontend/src/components/ScenarioInput.jsx): scenario interpretation, text parsing, file upload.
+  - [`frontend/src/components/SimulationProgress.jsx`](/Users/tian/GitHub/polisim/polisim-repo/frontend/src/components/SimulationProgress.jsx): simulation progress and live agent feed.
+  - [`frontend/src/components/MapView.jsx`](/Users/tian/GitHub/polisim/polisim-repo/frontend/src/components/MapView.jsx): Singapore constituency map from static GeoJSON.
+  - [`frontend/src/components/SidePanel.jsx`](/Users/tian/GitHub/polisim/polisim-repo/frontend/src/components/SidePanel.jsx): scenario frame, provisions, live sentiment, constituency detail, levers, final prediction.
 
-## File Guide (What's What)
+### Backend
 
-```
-polisim-repo/
-├── .env                    ← YOUR API KEYS (never commit this)
-├── .env.example            ← Template for .env
-├── demo.sh                 ← One-command "start everything"
-│
-├── backend/
-│   ├── main.py             ← FastAPI server, all routes, WebSocket handler
-│   ├── policy_parser.py    ← PDF/text → structured provisions (GPT-4o)
-│   ├── agent_engine.py     ← Spawn 40 agents, each calls GPT-4o
-│   ├── demographics.py     ← Builds agent personas from SG demographic data
-│   ├── contagion_v2.py     ← Social influence propagation (the "ripple effect")
-│   ├── contagion.py        ← Old v1 (O(n²), kept for reference)
-│   ├── mock_mode.py        ← Fake responses for testing without API keys
-│   ├── levers.py           ← Policy parameter adjustments (sliders)
-│   ├── scraper.py          ← TinyFish integration (live web scraping)
-│   ├── real_data.py        ← Loads Census CSVs, GE results, income data
-│   ├── backtest.py         ← Compare predictions vs actual GE2020 results
-│   └── requirements.txt
-│
-├── frontend/
-│   ├── src/
-│   │   ├── App.jsx                 ← Main app (upload → simulate → display)
-│   │   ├── hooks/useSimulation.js  ← WebSocket client, manages sim state
-│   │   └── components/
-│   │       ├── MapView.jsx         ← Leaflet map of Singapore GRCs
-│   │       ├── SidePanel.jsx       ← Provisions + GRC detail + levers
-│   │       ├── PolicyUpload.jsx    ← Drag-and-drop file upload
-│   │       ├── AgentVoice.jsx      ← Agent quote bubbles
-│   │       ├── DemographicBreakdown.jsx  ← Race/age sentiment bars
-│   │       ├── LeverControls.jsx   ← Sliders to adjust policy params
-│   │       ├── VotePrediction.jsx  ← Final PASS/FAIL vote call
-│   │       ├── SimulationProgress.jsx ← Progress bar during sim
-│   │       └── Header.jsx
-│   └── public/
-│       └── sg_electoral_boundaries.geojson  ← Real SG constituency map
-│
-├── data/
-│   ├── grc_profiles.json          ← 15 GRCs with demographics + GE2020 data
-│   ├── sg_demographics.json       ← National-level Census summary
-│   ├── pop_age_sex.csv            ← Census: population by age/sex/planning area
-│   ├── pop_ethnicity.csv          ← Census: population by race/planning area
-│   ├── households_dwelling.csv    ← Census: housing types by planning area
-│   ├── income_by_area.csv         ← Census: income distribution by area
-│   ├── ge_results.csv             ← Election results 1955-2025
-│   ├── voter_turnout.csv          ← Voter turnout 1955-2025
-│   ├── ura_subzone_boundary.geojson  ← URA planning area boundaries
-│   └── test_policy.pdf            ← Sample budget policy for testing
-│
-└── eval/
-    └── benchmark.py               ← Validation scripts
-```
+- FastAPI app entry: [`backend/main.py`](/Users/tian/GitHub/polisim/polisim-repo/backend/main.py).
+- In-memory simulation store keyed by `policy_id`.
+- Main pipeline modules:
+  - [`backend/policy_parser.py`](/Users/tian/GitHub/polisim/polisim-repo/backend/policy_parser.py): policy text/PDF to provisions.
+  - [`backend/scenario_interpreter.py`](/Users/tian/GitHub/polisim/polisim-repo/backend/scenario_interpreter.py): natural-language scenario to structured binary framing plus provisions.
+  - [`backend/config_generator.py`](/Users/tian/GitHub/polisim/polisim-repo/backend/config_generator.py): optional segment config generation with streamed SSE events.
+  - [`backend/demographics.py`](/Users/tian/GitHub/polisim/polisim-repo/backend/demographics.py): weighted persona construction.
+  - [`backend/agent_engine.py`](/Users/tian/GitHub/polisim/polisim-repo/backend/agent_engine.py): per-persona evaluation via OpenAI.
+  - [`backend/mock_mode.py`](/Users/tian/GitHub/polisim/polisim-repo/backend/mock_mode.py): deterministic offline behavior when OpenAI is unavailable.
+  - [`backend/market.py`](/Users/tian/GitHub/polisim/polisim-repo/backend/market.py): conviction bet sizing and market price calculation.
+  - [`backend/contagion_v2.py`](/Users/tian/GitHub/polisim/polisim-repo/backend/contagion_v2.py): O(n) group-based sentiment propagation.
+  - [`backend/real_data.py`](/Users/tian/GitHub/polisim/polisim-repo/backend/real_data.py): CSV/JSON enrichment for constituency and election data.
+  - [`backend/backtest.py`](/Users/tian/GitHub/polisim/polisim-repo/backend/backtest.py): historical benchmark path.
+  - [`backend/scraper.py`](/Users/tian/GitHub/polisim/polisim-repo/backend/scraper.py): TinyFish sentiment/news/demo-data integration.
+  - [`backend/levers.py`](/Users/tian/GitHub/polisim/polisim-repo/backend/levers.py): post-parse provision mutations.
 
----
+## End-to-End Logic
 
-## How To Run
+### Stage A: Optional segment configuration
 
-### Quick Start (30 seconds)
+1. The frontend calls `POST /api/configure-region/stream` with a free-form description.
+2. [`backend/config_generator.py`](/Users/tian/GitHub/polisim/polisim-repo/backend/config_generator.py) either:
+   - plans TinyFish research, streams search/narration events, and synthesizes a config with OpenAI, or
+   - falls back to OpenAI-only generation if TinyFish is unavailable.
+3. The resulting config is stored in memory and returned with a `config_id`.
+4. The frontend later applies that config to a specific simulation with `POST /api/apply-config/{policy_id}`.
+
+### Stage B: Input parsing
+
+The app supports three input paths:
+
+- `POST /api/upload`
+  - Accepts uploaded file bytes.
+  - Enforces a `10MB` limit.
+  - In mock mode, uses `mock_parse_provisions`.
+  - Otherwise parses PDFs with `pdfplumber` and sends extracted text to OpenAI.
+- `POST /api/upload-text`
+  - Accepts raw text up to `50,000` characters.
+  - Uses mock parser or OpenAI parser.
+- `POST /api/interpret-scenario`
+  - Converts arbitrary text into:
+    - `title`
+    - `yes_definition`
+    - `no_definition`
+    - `context`
+    - `time_horizon`
+    - `domain`
+    - `provisions`
+    - `stakes_by_segment`
+
+Each input path creates a new in-memory simulation entry.
+
+### Stage C: Simulation
+
+1. The frontend opens `WS /ws/simulate/{policy_id}?agents=N`.
+2. The backend resolves provisions, optional scenario frame, and optional region config override.
+3. Personas are built with `build_personas(target_count=agent_count, config=region_config)`.
+4. The backend streams:
+   - `config`
+   - `agent_result` messages for each evaluated persona
+   - an initial `market_update`
+   - optional `live_sentiment`
+   - three `contagion_round` updates
+   - final `vote_prediction`
+   - `complete`
+
+The active frontend currently calls `sim.connect(policyId)` without an override, so the user-facing simulation path requests `100` agents by default even though the backend constant `DEFAULT_AGENT_COUNT` is `200`.
+
+## Persona Model
+
+Persona generation lives in [`backend/demographics.py`](/Users/tian/GitHub/polisim/polisim-repo/backend/demographics.py).
+
+Current behavior:
+
+- Constituency profiles load from [`data/grc_profiles.json`](/Users/tian/GitHub/polisim/polisim-repo/data/grc_profiles.json) through the active config.
+- Segmentation loops over `race × age × constituency`.
+- Income tiers are sampled from age-specific distributions.
+- Housing is sampled from income-specific distributions.
+- Occupation is deterministically chosen from the tier’s occupation list.
+- Concerns are sampled per race/segment.
+- Risk appetite is derived from age, income tier, and housing unless a generated custom-segment config overrides it.
+- Each persona receives a `weight` used later for aggregation.
+
+Important caveats:
+
+- `build_personas` accepts a config override, but `load_grc_profiles()` still reads from the global active config, so custom region generation does not yet swap out constituency data files.
+- For generated custom segment configs, segment labels are stored in the `race` field and distributed equally because constituency profiles do not contain matching per-segment census shares.
+- Trimming only occurs when the raw persona count exceeds `target_count * 1.5`; otherwise the overshoot remains.
+
+## Market and Contagion Model
+
+### Market
+
+[`backend/market.py`](/Users/tian/GitHub/polisim/polisim-repo/backend/market.py) turns each agent into a bettor.
+
+- `conviction_bet = risk_appetite × confidence × weight`
+- `support` maps to all `YES`
+- `reject` maps to all `NO`
+- `neutral` splits `40% YES / 60% NO`
+- `market_price = total_yes / (total_yes + total_no)`
+
+Returned market metadata includes:
+
+- implied probability
+- volume
+- yes/no volume
+- active bettors
+- spread
+- confidence label
+
+### Contagion
+
+[`backend/contagion_v2.py`](/Users/tian/GitHub/polisim/polisim-repo/backend/contagion_v2.py) is the active contagion engine.
+
+It computes weighted group means for:
+
+- constituency
+- race/segment
+- race/segment by age
+- housing
+- global sentiment
+
+Then each agent blends:
+
+- its own current score
+- neighborhood/group influence
+- age-weighted social-media/global influence
+
+The damping factor and group weights come from [`backend/config.py`](/Users/tian/GitHub/polisim/polisim-repo/backend/config.py).
+
+Legacy note:
+
+- [`backend/contagion.py`](/Users/tian/GitHub/polisim/polisim-repo/backend/contagion.py) is the older pairwise implementation and is not used by the active API path.
+
+## API Reference
+
+### Implemented HTTP endpoints
+
+| Method | Endpoint | Current behavior |
+| --- | --- | --- |
+| `GET` | `/api/health` | Returns status, project name, mock mode, active region name, and backend default agent count. |
+| `POST` | `/api/upload` | Parses uploaded `PDF`/`TXT`/`MD` file into provisions. |
+| `POST` | `/api/upload-text` | Parses raw text into provisions. |
+| `POST` | `/api/interpret-scenario` | Converts a free-form scenario into binary framing plus provisions. |
+| `POST` | `/api/configure-region` | Non-streaming config generation helper. |
+| `POST` | `/api/configure-region/stream` | SSE stream for research and config synthesis. |
+| `POST` | `/api/apply-config/{policy_id}` | Attaches a generated or inline config override to an existing simulation. |
+| `GET` | `/api/demographics` | Returns enriched constituency profiles for the requested election year. |
+| `GET` | `/api/backtest` | Runs a historical backtest in mock mode or real mode depending on OpenAI availability. |
+| `POST` | `/api/gerrymander` | Returns constituency vulnerability and redistricting-style heuristics. |
+| `POST` | `/api/adjust/{policy_id}` | Applies a lever mutation to provisions and returns a new simulation id. |
+
+### Implemented WebSocket endpoint
+
+| Method | Endpoint | Current behavior |
+| --- | --- | --- |
+| `WS` | `/ws/simulate/{policy_id}?agents=N` | Streams simulation progress, market state, contagion rounds, and final vote prediction. |
+
+### WebSocket message types
+
+- `config`
+- `agent_result`
+- `market_update`
+- `live_sentiment`
+- `contagion_round`
+- `vote_prediction`
+- `complete`
+- `error`
+
+## Data Files
+
+Primary shipped data:
+
+- [`data/grc_profiles.json`](/Users/tian/GitHub/polisim/polisim-repo/data/grc_profiles.json): base constituency profiles with `pop`, ethnicity mix, seats, center, and incumbent party.
+- [`data/ge_results.csv`](/Users/tian/GitHub/polisim/polisim-repo/data/ge_results.csv): election results from `1955` through `2025`.
+- [`data/voter_turnout.csv`](/Users/tian/GitHub/polisim/polisim-repo/data/voter_turnout.csv): turnout rows from `1955` through `2025`.
+- [`data/pop_age_sex.csv`](/Users/tian/GitHub/polisim/polisim-repo/data/pop_age_sex.csv)
+- [`data/pop_ethnicity.csv`](/Users/tian/GitHub/polisim/polisim-repo/data/pop_ethnicity.csv)
+- [`data/households_dwelling.csv`](/Users/tian/GitHub/polisim/polisim-repo/data/households_dwelling.csv)
+- [`data/income_by_area.csv`](/Users/tian/GitHub/polisim/polisim-repo/data/income_by_area.csv)
+- [`data/sg_demographics.json`](/Users/tian/GitHub/polisim/polisim-repo/data/sg_demographics.json)
+- [`frontend/public/sg_electoral_boundaries.geojson`](/Users/tian/GitHub/polisim/polisim-repo/frontend/public/sg_electoral_boundaries.geojson): frontend map geometry.
+
+Current profile/election facts verified from repo contents:
+
+- `grc_profiles.json`: `33` profiles
+- `ge_results.csv`: includes election rows for `1955, 1959, 1963, 1968, 1972, 1976, 1980, 1984, 1988, 1991, 1997, 2001, 2006, 2011, 2015, 2020, 2025`
+- `voter_turnout.csv`: includes turnout rows for the same year set
+
+## Running the App
+
+### Quick start
 
 ```bash
 cd polisim-repo
-
-# 1. Make sure .env has your keys (already done if Clawdy set it up)
-cat .env   # should show OPENAI_API_KEY and TINYFISH_API_KEY
-
-# 2. Start both servers
+cp .env.example .env
 ./demo.sh
 ```
 
-Open `http://localhost:3000`. Upload a PDF or text file. Click "Run Simulation". Done.
-
-### Manual Start (if demo.sh doesn't work)
+### Manual start
 
 ```bash
-# Terminal 1: Backend
 cd polisim-repo
+
+# backend
 source venv/bin/activate
 cd backend
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
-# Terminal 2: Frontend
-cd polisim-repo/frontend
+# frontend
+cd ../frontend
 npm run dev
 ```
 
-### Testing Without API Keys (Mock Mode)
+### Environment variables
 
-If you remove the `OPENAI_API_KEY` from `.env` (or set it to something short), mock mode kicks in automatically. Everything works the same but with fake SG-themed responses instead of real GPT-4o calls. Great for frontend iteration.
+Expected by the code:
 
----
+- `OPENAI_API_KEY`
+- `TINYFISH_API_KEY`
 
-## What Inputs Can I Provide?
+Important note:
 
-### Via the UI (localhost:3000)
-- **PDF** — any policy document, budget statement, white paper
-- **TXT** — plaintext file with policy description
-- **MD** — markdown file
+- `TINYFISH_BASE_URL` appears in [`.env.example`](/Users/tian/GitHub/polisim/polisim-repo/.env.example), but the current scraper implementation does not read it.
 
-### Via API (curl / Postman)
+### Mock mode
 
-**Upload a file:**
+Mock mode is enabled when `OPENAI_API_KEY` is missing, obviously placeholder-like, or shorter than `20` characters.
+
+In mock mode:
+
+- uploads and pasted text use `mock_parse_provisions`
+- agent evaluation uses `mock_agent_response`
+- TinyFish live-sentiment scraping is skipped by the simulation path
+
+## Backtesting and Evaluation
+
+### Backtest
+
 ```bash
-curl -X POST http://localhost:8000/api/upload -F "file=@your_policy.pdf"
+cd polisim-repo
+source venv/bin/activate
+cd backend
+python3 backtest.py 2025
 ```
 
-**Paste raw text (no file needed):**
+Current mock GE2025 backtest observed from the repository code on `2026-03-28`:
+
+- matched constituencies: `32`
+- total generated personas: `240` when `target_agents=200`
+- `MAE`: `23.5`
+- correct calls: `23/32`
+- call accuracy: `71.9%`
+- correlation: `-0.139`
+
+These numbers are not guaranteed stable because they depend on shipped data and current implementation details.
+
+### Eval script
+
 ```bash
-curl -X POST http://localhost:8000/api/upload-text \
-  -H 'Content-Type: application/json' \
-  -d '{"text": "The government will raise GST from 9% to 10% in 2027."}'
+cd polisim-repo
+source venv/bin/activate
+python3 eval/benchmark.py
 ```
 
-**Run backtest (compare against real GE2020):**
-```bash
-curl http://localhost:8000/api/backtest
-```
+[`eval/benchmark.py`](/Users/tian/GitHub/polisim/polisim-repo/eval/benchmark.py) checks:
 
-**Gerrymandering analysis:**
-```bash
-curl -X POST http://localhost:8000/api/gerrymander \
-  -H 'Content-Type: application/json' \
-  -d '{"target_party": "PAP"}'
-```
+- demographic differentiation by race
+- demographic differentiation by age
+- vote total coherence
+- market validity
+- backtest thresholds
 
-**Adjust policy levers (re-run with different params):**
-```bash
-curl -X POST "http://localhost:8000/api/adjust/{policy_id}?lever=income_threshold&value=12000"
-```
+## File Guide
 
----
+### Active files
 
-## What Can I Tweak?
+- [`backend/main.py`](/Users/tian/GitHub/polisim/polisim-repo/backend/main.py): API entry point and simulation orchestration.
+- [`backend/config.py`](/Users/tian/GitHub/polisim/polisim-repo/backend/config.py): active Singapore config and contagion defaults.
+- [`backend/demographics.py`](/Users/tian/GitHub/polisim/polisim-repo/backend/demographics.py): persona builder.
+- [`backend/agent_engine.py`](/Users/tian/GitHub/polisim/polisim-repo/backend/agent_engine.py): OpenAI-backed persona evaluation.
+- [`backend/market.py`](/Users/tian/GitHub/polisim/polisim-repo/backend/market.py): bets and market aggregation.
+- [`backend/contagion_v2.py`](/Users/tian/GitHub/polisim/polisim-repo/backend/contagion_v2.py): active contagion model.
+- [`backend/policy_parser.py`](/Users/tian/GitHub/polisim/polisim-repo/backend/policy_parser.py): provision extraction.
+- [`backend/scenario_interpreter.py`](/Users/tian/GitHub/polisim/polisim-repo/backend/scenario_interpreter.py): free-form scenario framing.
+- [`backend/config_generator.py`](/Users/tian/GitHub/polisim/polisim-repo/backend/config_generator.py): streaming config generation.
+- [`frontend/src/App.jsx`](/Users/tian/GitHub/polisim/polisim-repo/frontend/src/App.jsx): stage orchestration.
+- [`frontend/src/hooks/useSimulation.js`](/Users/tian/GitHub/polisim/polisim-repo/frontend/src/hooks/useSimulation.js): simulation state.
 
-### Agent Count
-In `backend/demographics.py` → `build_personas(target_count=40)`. Change `40` to `100` or `200` for richer sim (costs more OpenAI tokens, takes longer).
+### Present but secondary or legacy
 
-### Agent Persona Template
-In `backend/agent_engine.py` → `AGENT_SYSTEM_PROMPT`. This is the prompt each agent gets. You can change the tone, add more persona fields, adjust the response format.
+- [`backend/contagion.py`](/Users/tian/GitHub/polisim/polisim-repo/backend/contagion.py): older contagion implementation.
+- [`frontend/src/components/PolicyUpload.jsx`](/Users/tian/GitHub/polisim/polisim-repo/frontend/src/components/PolicyUpload.jsx): older upload component not used by the current app.
+- [`backend/market.py`](/Users/tian/GitHub/polisim/polisim-repo/backend/market.py) exports `compute_market_by_grc` and `compute_price_history`, but the main WebSocket path currently computes history inline and uses local aggregation in [`backend/main.py`](/Users/tian/GitHub/polisim/polisim-repo/backend/main.py).
+- [`backend/agent_engine.py`](/Users/tian/GitHub/polisim/polisim-repo/backend/agent_engine.py) exports `run_simulation`, but the main app streams per-agent results through `stream_agent_results`.
 
-### Contagion Strength
-In `backend/contagion_v2.py` → `GROUP_WEIGHTS` dict and `DAMPING` constant. Higher damping (0.7→0.9) = agents more stubborn. Lower = more easily influenced by their community.
+## Known Limitations
 
-### GRC Profiles
-`data/grc_profiles.json` — add/remove constituencies, change demographic weights. These drive persona generation.
+- Region generation is currently closer to “custom segmentation over Singapore geography” than fully geography-agnostic simulation.
+- The frontend map and electoral-boundary mapping are Singapore-specific and manually keyed.
+- Some frontend calls bypass Vite proxying by using absolute localhost URLs.
+- Generated segment configs reuse the `race` field to carry arbitrary segment labels.
+- Simulation and config state are in-memory only and disappear on restart.
+- The app does not persist uploads, results, or generated configs.
+- `demo.sh` installs dependencies on every run.
 
-### Policy Levers
-`backend/levers.py` → `LEVER_DEFINITIONS`. Add new sliders (e.g., "retirement_age", "foreign_worker_levy") and define how they modify provisions.
+## Documentation Scope
 
-### OpenAI Model
-In `backend/agent_engine.py` and `backend/policy_parser.py` — change `model="gpt-4o"` to `"gpt-4o-mini"` (cheaper, faster, less nuanced) or `"gpt-4-turbo"`.
-
----
-
-## Where MiroFish Plugs In
-
-MiroFish is a multi-agent "swarm intelligence" engine that builds a parallel digital world from documents using GraphRAG. Here's where it connects:
-
-### Option A: Replace the Agent Engine (Deepest Integration)
-
-**Instead of** our simple 40-agent GPT-4o loop (`agent_engine.py`), MiroFish:
-1. Takes the parsed provisions from `policy_parser.py`
-2. Builds a knowledge graph of entities and relationships
-3. Auto-generates agents with distinct personas, long-term memory, behavioral rules
-4. Simulates interactions across social environments (Twitter-like, Reddit-like)
-5. Returns emergent sentiment/outcomes
-
-**Where to wire:** Replace the `stream_agent_results()` call in `main.py` (line ~67) with a MiroFish API call. The WebSocket handler just needs results in this shape:
-
-```python
-{
-    "sentiment": "support" | "neutral" | "reject",
-    "confidence": 0.8,
-    "reason": "As a 35yo nurse...",
-    "vote_intent": "for" | "against" | "undecided",
-    "key_provision": "#2",
-    "persona": {"race": "Chinese", "age": "30-44", "grc": "Ang Mo Kio GRC", ...},
-    "score": 1.0   # 1.0=support, 0=neutral, -1=reject
-}
-```
-
-### Option B: Replace the Contagion Model (Medium Integration)
-
-**Instead of** our simple group-based contagion (`contagion_v2.py`), MiroFish handles the social simulation layer — agents interacting over rounds, building coalitions, shifting opinions organically.
-
-**Where to wire:** Replace the `propagate_sentiment()` calls in `main.py` (lines ~73-80).
-
-### Option C: Supplement with Sentiment Scraping (Lightest Integration)
-
-**Use MiroFish** to scrape/analyze real public sentiment from forums, then seed our agents' initial attitudes with that data. This sits alongside TinyFish.
-
-**Where to wire:** `backend/scraper.py` — add a `mirofish_scrape()` function, call it from the sim loop to ground agents in real-world sentiment.
-
-### Data Format Contract
-
-Whatever MiroFish returns, the frontend needs these fields per agent:
-- `sentiment` (string: "support"/"neutral"/"reject")
-- `reason` (string: 1-2 sentence quote)
-- `persona.race`, `persona.age`, `persona.grc` (for map/breakdown display)
-- `score` (float: -1 to 1, for contagion math)
-
----
-
-## API Reference (All Endpoints)
-
-| Method | Endpoint | What It Does |
-|--------|----------|-------------|
-| `GET` | `/api/health` | Health check + mock mode status |
-| `POST` | `/api/upload` | Upload PDF/TXT/MD → parse provisions |
-| `POST` | `/api/upload-text` | Paste raw text → parse provisions |
-| `WS` | `/ws/simulate/{policy_id}` | Stream simulation (agents → contagion → vote) |
-| `GET` | `/api/demographics` | GRC profiles with Census + GE2020 data |
-| `POST` | `/api/adjust/{policy_id}` | Re-run with modified policy params |
-| `GET` | `/api/backtest` | Compare predictions vs actual GE2020 |
-| `POST` | `/api/gerrymander` | Redistricting/gerrymandering analysis |
-
-### WebSocket Message Types (what the frontend receives)
-
-```
-→ {"type": "agent_result", "data": {...}}     # one per agent (40 total)
-→ {"type": "contagion_round", "round": 0-2}   # sentiment propagation
-→ {"type": "vote_prediction", "data": {...}}   # final vote call
-→ {"type": "complete"}                         # simulation done
-```
-
----
-
-## Data Sources (All Real, All Open)
-
-| Dataset | Source | Records |
-|---------|--------|---------|
-| Electoral boundaries (GeoJSON) | data.gov.sg / ELD | 31 constituencies |
-| Population by age/sex | Census 2020 / SingStat | 389 planning areas |
-| Population by ethnicity | Census 2020 / SingStat | 389 planning areas |
-| Households by dwelling type | Census 2020 / SingStat | 31 planning areas |
-| Income distribution | Census 2020 / SingStat | 31 planning areas |
-| Election results | ELD | 1955-2025 (1610 rows) |
-| Voter turnout | ELD | 1955-2025 (754 rows) |
-| URA subzone boundaries | URA | 3.2MB GeoJSON |
-
----
-
-## Hackathon Demo Script (2 min)
-
-1. **Hook** (15s): "14 million scenarios, only one you win. Polysim is a prediction market without the market."
-2. **Upload** (15s): Drop in a real policy PDF → provisions appear
-3. **Simulate** (20s): Click Run → watch 40 agents stream in, map lights up, click a GRC
-4. **Backtest** (15s): "We retroactively called Sengkang and Aljunied for the opposition"
-5. **Gerrymander** (20s): "What if we redrew boundaries? Polysim finds the swing seats"
-6. **Levers** (15s): Pull the income slider → watch sentiment shift live
-7. **Expand** (15s): "Policy is just the start. Marketing campaigns, M&A, product launches — anything that's a bet on how people react"
-8. **Close** (5s): "Polysim. We help you win."
+This README is intended to describe the current implementation. Design ideas, extension guidance, and deeper rationale now live in [`DESIGN.md`](/Users/tian/GitHub/polisim/polisim-repo/DESIGN.md).
