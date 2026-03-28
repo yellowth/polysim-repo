@@ -47,6 +47,7 @@ export default function App() {
             agentCount={sim.agentCount}
             contagionRound={sim.contagionRound}
             onSimulate={handleSimulate}
+            latestAgent={sim.latestAgent}
           />
           <main className="flex-1 flex overflow-hidden">
             <MapView
