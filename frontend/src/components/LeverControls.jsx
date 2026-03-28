@@ -13,8 +13,7 @@ export default function LeverControls({ onLeverChange }) {
   );
 
   const handleChange = (lever, val) => {
-    const numVal = Number(val);
-    setValues((prev) => ({ ...prev, [lever]: numVal }));
+    setValues((prev) => ({ ...prev, [lever]: Number(val) }));
   };
 
   const handleApply = (lever) => {
@@ -37,7 +36,9 @@ export default function LeverControls({ onLeverChange }) {
             </div>
             <input
               type="range"
-              min={config.min} max={config.max} step={config.step}
+              min={config.min}
+              max={config.max}
+              step={config.step}
               value={values[key]}
               onChange={(e) => handleChange(key, e.target.value)}
               onMouseUp={() => handleApply(key)}

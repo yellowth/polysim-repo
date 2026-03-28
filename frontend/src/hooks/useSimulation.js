@@ -27,7 +27,6 @@ export default function useSimulation() {
 
       if (msg.type === "agent_result") {
         setAgentCount((c) => c + 1);
-        // Incrementally update GRC sentiment
         const grc = msg.data.persona.grc;
         setGrcSentiment((prev) => {
           const existing = prev[grc] || { support: 0, neutral: 0, reject: 0, total: 0, agents: [] };
@@ -39,7 +38,7 @@ export default function useSimulation() {
               [msg.data.sentiment]: existing[msg.data.sentiment] + weight,
               total: existing.total + weight,
               agents: [...existing.agents, msg.data],
-              support_pct: null, // recalc below
+              support_pct: null,
             },
           };
         });

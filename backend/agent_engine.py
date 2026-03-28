@@ -15,7 +15,7 @@ YOUR PROFILE:
 - Key Concerns: {concerns}
 
 Based ONLY on your profile, evaluate the policy provisions below.
-Respond naturally as this person would — use casual Singapore English.
+Respond naturally as this person would -- use casual Singapore English.
 
 Respond in JSON only:
 {{
@@ -25,6 +25,7 @@ Respond in JSON only:
   "vote_intent": "for" | "against" | "undecided",
   "key_provision": "<which provision # affects you most>"
 }}"""
+
 
 async def simulate_agent(persona: dict, provisions: list[dict]) -> dict:
     """Run a single agent evaluation."""
@@ -55,6 +56,7 @@ async def simulate_agent(persona: dict, provisions: list[dict]) -> dict:
             "key_provision": "none", "persona": persona, "score": 0.0
         }
 
+
 async def stream_agent_results(personas: list[dict], provisions: list[dict]):
     """Yield agent results as they complete, with concurrency limit."""
     semaphore = asyncio.Semaphore(15)
@@ -67,6 +69,7 @@ async def stream_agent_results(personas: list[dict], provisions: list[dict]):
     for coro in asyncio.as_completed(tasks):
         result = await coro
         yield result
+
 
 async def run_simulation(personas: list[dict], provisions: list[dict]) -> list[dict]:
     """Run all agents and return complete results."""

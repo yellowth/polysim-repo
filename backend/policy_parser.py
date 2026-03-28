@@ -4,6 +4,7 @@ from openai import AsyncOpenAI
 
 client = AsyncOpenAI()
 
+
 async def parse_policy_pdf(pdf_bytes: bytes) -> list[dict]:
     """Extract text from PDF, then use OpenAI to structure into provisions."""
     # Extract raw text

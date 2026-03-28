@@ -1,7 +1,6 @@
 import { MessageSquareQuote } from "lucide-react";
 
 export default function AgentVoice({ agents }) {
-  // Show up to 3 sample agent quotes
   const samples = agents.filter((a) => a.reason).slice(0, 3);
 
   if (!samples.length) return null;
