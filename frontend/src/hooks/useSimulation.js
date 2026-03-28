@@ -54,6 +54,27 @@ export default function useSimulation() {
         setTotalAgents(msg.data.total_agents || 100);
       }
 
+      if (msg.type === "scraping_start") {
+        setPredictionLog((prev) => [
+          ...prev,
+          { type: "scraping_start", topic: msg.data?.topic },
+        ]);
+      }
+
+      if (msg.type === "scraping_complete") {
+        setPredictionLog((prev) => [
+          ...prev,
+          { type: "scraping_complete", data: msg.data },
+        ]);
+      }
+
+      if (msg.type === "scraping_error") {
+        setPredictionLog((prev) => [
+          ...prev,
+          { type: "scraping_error", message: msg.data?.message },
+        ]);
+      }
+
       if (msg.type === "agent_result") {
         // Accumulate running bet totals for live price estimate
         yesBetsRef.current += msg.data.yes_bet || 0;

@@ -3,33 +3,36 @@ import Header from "./components/Header";
 import MapView from "./components/MapView";
 import SidePanel from "./components/SidePanel";
 import ScenarioInput from "./components/ScenarioInput";
-import RegionConfigPanel from "./components/RegionConfigPanel";
+// Stage A (region/segment config) commented out — defaulting to Singapore demographics
+// import RegionConfigPanel from "./components/RegionConfigPanel";
 import SimulationProgress from "./components/SimulationProgress";
 import useSimulation from "./hooks/useSimulation";
 
 // App flow:
-//   "config"   — Stage A: optional region/segment config (RegionConfigPanel)
-//   "input"    — Stage B: scenario/policy input (ScenarioInput)
+//   "input"    — Stage B: scenario/policy input (ScenarioInput) — starts here (SG defaults)
 //   "simulate" — simulation running/complete view
+//
+// Stage A (RegionConfigPanel — custom demographic segmentation) is temporarily disabled.
+// The app defaults to Singapore demographics (config.py SINGAPORE + data/grc_profiles.json).
 export default function App() {
-  const [step, setStep] = useState("config");
+  const [step, setStep] = useState("input"); // skip Stage A — start directly at input
   const [policyId, setPolicyId] = useState(null);
   const [provisions, setProvisions] = useState([]);
   const [scenarioFrame, setScenarioFrame] = useState(null);
-  const [regionConfig, setRegionConfig] = useState(null);
+  const [regionConfig, setRegionConfig] = useState(null); // null = use SG defaults
   const [selectedGrc, setSelectedGrc] = useState(null);
   const sim = useSimulation();
 
-  // ── Stage A: region config applied ──────────────────────────────────────────
-  const handleConfigApply = (config) => {
-    setRegionConfig(config);
-    setStep("input");
-  };
-
-  const handleConfigSkip = () => {
-    setRegionConfig(null);
-    setStep("input");
-  };
+  // ── Stage A: region config (disabled — kept for future re-enable) ────────────
+  // const handleConfigApply = (config) => {
+  //   setRegionConfig(config);
+  //   setStep("input");
+  // };
+  //
+  // const handleConfigSkip = () => {
+  //   setRegionConfig(null);
+  //   setStep("input");
+  // };
 
   // ── Stage B: upload PDF ──────────────────────────────────────────────────────
   const handleUpload = async (file) => {
@@ -89,7 +92,7 @@ export default function App() {
   };
 
   const handleReset = () => {
-    setStep("config");
+    setStep("input"); // Stage A disabled — reset to input
     setPolicyId(null);
     setProvisions([]);
     setScenarioFrame(null);
@@ -108,12 +111,13 @@ export default function App() {
 
       <Header onReset={step === "simulate" ? handleReset : undefined} />
 
-      {step === "config" && (
+      {/* Stage A (RegionConfigPanel) disabled — using Singapore demographics by default */}
+      {/* {step === "config" && (
         <RegionConfigPanel
           onApply={handleConfigApply}
           onSkip={handleConfigSkip}
         />
-      )}
+      )} */}
 
       {step === "input" && (
         <ScenarioInput

@@ -350,6 +350,34 @@ async def simulate(websocket: WebSocket, policy_id: str):
             "data": {"total_agents": total_agents, "contagion_rounds": 3}
         })
 
+        # Phase 0: TinyFish live web scraping — runs BEFORE agents so sentiment
+        # informs the prediction from the start.
+        live_adjustment = 0.0
+        live_sentiments = []
+        policy_topic = provisions[0]["title"] if provisions else "government policy"
+
+        if not MOCK_MODE:
+            await websocket.send_json({
+                "type": "scraping_start",
+                "data": {"topic": policy_topic},
+            })
+            try:
+                live_sentiments = await scrape_sg_sentiment(policy_topic)
+            except Exception as e:
+                live_sentiments = []
+                await websocket.send_json({
+                    "type": "scraping_error",
+                    "data": {"message": str(e)},
+                })
+
+            await websocket.send_json({
+                "type": "scraping_complete",
+                "data": {
+                    "sources_scraped": len(live_sentiments),
+                    "sentiments": live_sentiments[:5],
+                },
+            })
+
         # Phase 1: Stream individual agent results
         all_results = []
         if MOCK_MODE:
@@ -371,36 +399,28 @@ async def simulate(websocket: WebSocket, policy_id: str):
 
         sim["results"] = all_results
 
-        # Compute initial market price (pre-contagion)
+        # Compute initial market price (pre-contagion), then apply live sentiment
         initial_market = compute_market_price(all_results)
+        if live_sentiments:
+            adjusted_price = adjust_with_live_sentiment(
+                initial_market["market_price"], live_sentiments
+            )
+            live_adjustment = adjusted_price - initial_market["market_price"]
+            await websocket.send_json({
+                "type": "live_sentiment",
+                "data": {
+                    "sources_scraped": len(live_sentiments),
+                    "price_adjustment": round(live_adjustment, 4),
+                    "adjusted_price": adjusted_price,
+                    "sentiments": live_sentiments[:5],
+                }
+            })
+
         await websocket.send_json({
             "type": "market_update",
             "round": 0,
             "data": initial_market,
         })
-
-        # Phase 1.5: TinyFish live sentiment adjustment (if available)
-        live_adjustment = 0.0
-        if not MOCK_MODE:
-            try:
-                policy_topic = provisions[0]["title"] if provisions else "government policy"
-                live_sentiments = await scrape_sg_sentiment(policy_topic)
-                if live_sentiments:
-                    adjusted_price = adjust_with_live_sentiment(
-                        initial_market["market_price"], live_sentiments
-                    )
-                    live_adjustment = adjusted_price - initial_market["market_price"]
-                    await websocket.send_json({
-                        "type": "live_sentiment",
-                        "data": {
-                            "sources_scraped": len(live_sentiments),
-                            "price_adjustment": round(live_adjustment, 4),
-                            "adjusted_price": adjusted_price,
-                            "sentiments": live_sentiments[:5],  # send top 5
-                        }
-                    })
-            except Exception:
-                pass  # TinyFish is optional
 
         # Phase 2: Contagion / market rounds (3 rounds)
         price_history = [{"round": 0, "market_price": initial_market["market_price"]}]
