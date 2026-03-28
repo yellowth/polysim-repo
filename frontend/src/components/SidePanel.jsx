@@ -4,15 +4,39 @@ import LeverControls from "./LeverControls";
 import VotePrediction from "./VotePrediction";
 import { TrendingUp, Radio } from "lucide-react";
 
-export default function SidePanel({ provisions, selectedGrc, grcSentiment, votePrediction, marketPrice, priceHistory, liveSentiment, onLeverChange, className }) {
+export default function SidePanel({ provisions, scenarioFrame, selectedGrc, grcSentiment, votePrediction, marketPrice, priceHistory, liveSentiment, onLeverChange, className }) {
   const grcData = selectedGrc ? grcSentiment[selectedGrc] : null;
 
   return (
     <div className={`${className} border-l border-slate-800 overflow-y-auto p-4 space-y-4`}>
-      {/* Policy Summary */}
+
+      {/* Scenario frame — YES/NO outcome definitions */}
+      {scenarioFrame && (
+        <div className="space-y-1.5">
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            Scenario
+          </h3>
+          <p className="text-sm font-medium text-slate-200">{scenarioFrame.title}</p>
+          {scenarioFrame.context && (
+            <p className="text-xs text-slate-500 leading-relaxed">{scenarioFrame.context}</p>
+          )}
+          <div className="grid grid-cols-2 gap-1.5 mt-2">
+            <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-lg px-2.5 py-2">
+              <p className="text-xs font-medium text-emerald-400 mb-0.5">YES</p>
+              <p className="text-xs text-slate-400 leading-relaxed">{scenarioFrame.yes_definition}</p>
+            </div>
+            <div className="bg-red-500/5 border border-red-500/20 rounded-lg px-2.5 py-2">
+              <p className="text-xs font-medium text-red-400 mb-0.5">NO</p>
+              <p className="text-xs text-slate-400 leading-relaxed">{scenarioFrame.no_definition}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Policy Provisions */}
       <div>
         <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-          Policy Provisions
+          {scenarioFrame ? "Provisions" : "Policy Provisions"}
         </h3>
         <div className="space-y-1.5">
           {provisions.length === 0 && (

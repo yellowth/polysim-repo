@@ -2,8 +2,9 @@ import os
 import json
 import uuid
 import asyncio
-from fastapi import FastAPI, UploadFile, File, WebSocket, WebSocketDisconnect, Query
+from fastapi import FastAPI, UploadFile, File, WebSocket, WebSocketDisconnect, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -19,6 +20,8 @@ from real_data import get_enriched_grc_profiles, load_pop_ethnicity, load_income
 from market import compute_agent_bet, compute_market_price, compute_market_by_grc, adjust_with_live_sentiment
 from scraper import scrape_sg_sentiment
 from config import get_config
+from scenario_interpreter import interpret_scenario
+from config_generator import generate_segment_config, stream_research_and_generate, get_stored_config
 
 # Mock mode: enabled when no OpenAI key is set or key is the placeholder
 _oai_key = os.getenv("OPENAI_API_KEY", "")
@@ -31,7 +34,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 simulations = {}
 
 # Default agent count — configurable via query param
-DEFAULT_AGENT_COUNT = 100
+DEFAULT_AGENT_COUNT = 200
 
 
 @app.get("/api/health")
@@ -64,7 +67,10 @@ async def upload_policy(file: UploadFile = File(...)):
         provisions = await parse_policy_text(text)
 
     policy_id = str(uuid.uuid4())
-    simulations[policy_id] = {"provisions": provisions, "results": [], "status": "parsed"}
+    simulations[policy_id] = {
+        "provisions": provisions, "results": [], "status": "parsed",
+        "scenario_frame": None, "region_config": None,
+    }
     return {"policy_id": policy_id, "provisions": provisions}
 
 
@@ -83,8 +89,109 @@ async def upload_policy_text(body: dict):
         provisions = await parse_policy_text(text)
 
     policy_id = str(uuid.uuid4())
-    simulations[policy_id] = {"provisions": provisions, "results": [], "status": "parsed"}
+    simulations[policy_id] = {
+        "provisions": provisions, "results": [], "status": "parsed",
+        "scenario_frame": None, "region_config": None,
+    }
     return {"policy_id": policy_id, "provisions": provisions}
+
+
+@app.post("/api/interpret-scenario")
+async def interpret_scenario_endpoint(body: dict):
+    """
+    Convert any NL scenario into structured simulation input.
+    Send {"text": "...", "region": "optional region name"}.
+    Returns interpreted frame + policy_id ready for simulation.
+    """
+    text = body.get("text", "").strip()
+    if not text:
+        return {"error": "No scenario text provided"}
+
+    cfg = get_config()
+    region_name = body.get("region") or cfg.get("name", "the region")
+
+    frame = await interpret_scenario(text, region_name=region_name)
+
+    policy_id = str(uuid.uuid4())
+    simulations[policy_id] = {
+        "provisions": frame["provisions"],
+        "results": [],
+        "status": "parsed",
+        "scenario_frame": frame,
+        "region_config": None,
+    }
+    return {"policy_id": policy_id, "provisions": frame["provisions"], "frame": frame}
+
+
+@app.post("/api/configure-region")
+async def configure_region(body: dict):
+    """
+    Generate a demographic segment config from a NL description (non-streaming).
+    Send {"description": "..."}. Returns config override.
+    """
+    description = body.get("description", "").strip()
+    if not description:
+        return {"error": "No description provided"}
+
+    config = await generate_segment_config(description)
+    config_id = str(uuid.uuid4())
+    simulations[f"config:{config_id}"] = config
+    return {"config_id": config_id, "config": config}
+
+
+@app.post("/api/configure-region/stream")
+async def configure_region_stream(request: Request):
+    """
+    Streaming SSE endpoint — agentic TinyFish research + GPT-4o synthesis.
+    Send {"description": "..."}. Streams research events as SSE.
+
+    Event types: plan | search_start | search_result | narrate | synthesis_start | complete | error
+    """
+    body = await request.json()
+    description = body.get("description", "").strip()
+    if not description:
+        async def err():
+            yield f"data: {json.dumps({'type': 'error', 'message': 'No description provided'})}\n\n"
+        return StreamingResponse(err(), media_type="text/event-stream")
+
+    async def event_stream():
+        async for event in stream_research_and_generate(description):
+            yield f"data: {json.dumps(event)}\n\n"
+            # Small flush pause so client receives events incrementally
+            await asyncio.sleep(0)
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",  # disable nginx buffering if proxied
+        },
+    )
+
+
+@app.post("/api/apply-config/{policy_id}")
+async def apply_config(policy_id: str, body: dict):
+    """
+    Attach a region config override to an existing simulation.
+    Send {"config_id": "..."} or {"config": {...}}.
+    """
+    if policy_id not in simulations:
+        return {"error": "Policy not found"}
+
+    if "config_id" in body:
+        cid = body["config_id"]
+        # Check both in-memory stores (legacy simulations dict + new config store)
+        config = get_stored_config(cid) or simulations.get(f"config:{cid}")
+        if not config:
+            return {"error": "Config not found"}
+    elif "config" in body:
+        config = body["config"]
+    else:
+        return {"error": "Provide config_id or config"}
+
+    simulations[policy_id]["region_config"] = config
+    return {"ok": True}
 
 
 @app.get("/api/demographics")
@@ -227,11 +334,13 @@ async def simulate(websocket: WebSocket, policy_id: str):
 
     sim = simulations[policy_id]
     provisions = sim["provisions"]
+    scenario_frame = sim.get("scenario_frame")
+    region_config = sim.get("region_config")
 
     # Parse agent count from query string (or use default)
     qs = websocket.query_params
     agent_count = min(500, max(20, int(qs.get("agents", DEFAULT_AGENT_COUNT))))
-    personas = build_personas(target_count=agent_count)
+    personas = build_personas(target_count=agent_count, config=region_config)
     total_agents = len(personas)
 
     try:
@@ -251,7 +360,11 @@ async def simulate(websocket: WebSocket, policy_id: str):
                 await websocket.send_json({"type": "agent_result", "data": result})
                 await asyncio.sleep(0.03)
         else:
-            async for result in stream_agent_results(personas, provisions):
+            async for result in stream_agent_results(
+                personas, provisions,
+                scenario_frame=scenario_frame,
+                region_config=region_config,
+            ):
                 compute_agent_bet(result)
                 all_results.append(result)
                 await websocket.send_json({"type": "agent_result", "data": result})
