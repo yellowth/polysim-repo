@@ -6,6 +6,7 @@ export default function useSimulation() {
   const [agentCount, setAgentCount] = useState(0);
   const [contagionRound, setContagionRound] = useState(-1);
   const [votePrediction, setVotePrediction] = useState(null);
+  const [latestAgent, setLatestAgent] = useState(null);
   const wsRef = useRef(null);
 
   const connect = useCallback((policyId) => {
@@ -16,6 +17,7 @@ export default function useSimulation() {
     setAgentCount(0);
     setContagionRound(-1);
     setVotePrediction(null);
+    setLatestAgent(null);
 
     const ws = new WebSocket(`ws://localhost:8000/ws/simulate/${policyId}`);
     wsRef.current = ws;
@@ -27,6 +29,7 @@ export default function useSimulation() {
 
       if (msg.type === "agent_result") {
         setAgentCount((c) => c + 1);
+        setLatestAgent(msg.data);
         const grc = msg.data.persona.grc;
         setGrcSentiment((prev) => {
           const existing = prev[grc] || { support: 0, neutral: 0, reject: 0, total: 0, agents: [] };
@@ -62,5 +65,5 @@ export default function useSimulation() {
     ws.onclose = () => {};
   }, []);
 
-  return { status, grcSentiment, agentCount, contagionRound, votePrediction, connect };
+  return { status, grcSentiment, agentCount, contagionRound, votePrediction, latestAgent, connect };
 }
