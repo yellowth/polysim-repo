@@ -1,14 +1,23 @@
 /**
  * API / WebSocket base URLs.
- * - Local `npm run dev`: empty base → relative `/api` and `/ws` so the Vite dev server proxy
- *   (see vite.config.js) forwards to the backend. Avoids the browser hitting :8000 directly.
- * - `npm run build` / production: set VITE_API_URL=https://your-backend.up.railway.app
- * - Optional: VITE_WS_URL if WebSocket host differs from HTTP
+ * - Local dev / preview on localhost: empty base → relative `/api` and `/ws` so Vite’s proxy
+ *   (dev server + `vite preview`) forwards to the backend — even for production *builds*
+ *   (`import.meta.env.DEV` is false) opened at http://localhost:3000 or :4173.
+ * - Hosted production (Vercel, etc.): set VITE_API_URL=https://your-backend…
+ * - Optional: VITE_WS_URL
  */
+function isBrowserLocalhost() {
+  if (typeof window === "undefined") return false;
+  const h = window.location.hostname;
+  return h === "localhost" || h === "127.0.0.1" || h === "[::1]";
+}
+
 export function getApiBase() {
   const v = import.meta.env.VITE_API_URL;
   if (v && String(v).trim()) return String(v).replace(/\/$/, "");
   if (import.meta.env.DEV) return "";
+  // Production bundle on localhost (vite preview, or old tab) — still use proxy, not :8000 in the browser
+  if (isBrowserLocalhost()) return "";
   return "http://localhost:8000";
 }
 
@@ -51,7 +60,8 @@ export function apiConnectionErrorHint() {
   }
 
   const h = window.location.hostname;
-  const isLocalHost = h === "localhost" || h === "127.0.0.1";
+  const isLocalHost =
+    h === "localhost" || h === "127.0.0.1" || h === "[::1]";
 
   // HTTPS page cannot call http:// API (browser mixed-content block)
   if (base && window.location.protocol === "https:" && base.startsWith("http:")) {
