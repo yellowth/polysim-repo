@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { httpUrl } from "../apiConfig";
 import { Loader2, Globe, ChevronRight, RotateCcw, AlertCircle, Info, Search, CheckCircle, Zap } from "lucide-react";
 
 const PRESETS = [
@@ -106,7 +107,7 @@ export default function RegionConfigPanel({ onApply, onSkip }) {
     setBusy(true);
 
     try {
-      const response = await fetch("http://localhost:8000/api/configure-region/stream", {
+      const response = await fetch(httpUrl("/api/configure-region/stream"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ description }),
