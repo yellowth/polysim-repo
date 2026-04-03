@@ -31,10 +31,41 @@ export function wsUrl(path) {
 
 /** Message when fetch/WebSocket fails — explains prod vs local. */
 export function apiConnectionErrorHint() {
-  if (typeof window === "undefined") return "Could not reach the server.";
-  const h = window.location.hostname;
-  if (h === "localhost" || h === "127.0.0.1") {
-    return "Could not reach the API. Start the backend (e.g. uvicorn on port 8000) or use npm run dev with the Vite proxy.";
+  const base = getApiBase();
+  const where = ` This build calls: ${base}.`;
+
+  if (typeof window === "undefined") {
+    return "Could not reach the server." + where;
   }
-  return "Could not reach the API. Set VITE_API_URL in your frontend host (e.g. Vercel → Environment Variables) to your Railway backend URL, then redeploy — Vite bakes this in at build time.";
+
+  const h = window.location.hostname;
+  const isLocalHost = h === "localhost" || h === "127.0.0.1";
+
+  // HTTPS page cannot call http:// API (browser mixed-content block)
+  if (window.location.protocol === "https:" && base.startsWith("http:")) {
+    return (
+      "Could not reach the API — use https:// in VITE_API_URL (Railway public URL), not http://." + where
+    );
+  }
+
+  // Prod site but bundle still has no VITE_API_URL → defaulted to localhost
+  if (!isLocalHost && (base.includes("localhost") || base.includes("127.0.0.1"))) {
+    return (
+      "Could not reach the API — this deploy was built without VITE_API_URL, so it still targets localhost. " +
+      "In Vercel: Settings → Environment Variables → add VITE_API_URL = https://(your-railway-app).up.railway.app " +
+      "for Production, save, then Deployments → Redeploy (Rebuild)." +
+      where
+    );
+  }
+
+  if (isLocalHost) {
+    return (
+      "Could not reach the API. Start the backend on port 8000 or run npm run dev (Vite proxies /api)." + where
+    );
+  }
+
+  return (
+    "Could not reach the API. Confirm the backend is up, the URL above is correct, and redeploy after changing VITE_API_URL." +
+    where
+  );
 }
