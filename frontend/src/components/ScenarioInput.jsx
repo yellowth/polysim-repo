@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Upload, FileText, Sparkles, ChevronRight, Loader2, AlertCircle } from "lucide-react";
-import { httpUrl } from "../apiConfig";
+import { httpUrl, apiConnectionErrorHint } from "../apiConfig";
 
 const TABS = ["scenario", "text", "pdf"];
 
@@ -52,7 +52,7 @@ export default function ScenarioInput({ onUpload, onScenario, onText, regionName
       if (data.error) { setError(data.error); return; }
       setInterpretation(data);
     } catch (e) {
-      setError("Could not reach the server");
+      setError(apiConnectionErrorHint());
     } finally {
       setBusy(false);
     }

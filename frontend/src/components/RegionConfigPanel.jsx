@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { httpUrl } from "../apiConfig";
+import { httpUrl, apiConnectionErrorHint } from "../apiConfig";
 import { Loader2, Globe, ChevronRight, RotateCcw, AlertCircle, Info, Search, CheckCircle, Zap } from "lucide-react";
 
 const PRESETS = [
@@ -131,7 +131,7 @@ export default function RegionConfigPanel({ onApply, onSkip }) {
         }
       }
     } catch (e) {
-      setError("Could not reach the server");
+      setError(apiConnectionErrorHint());
     } finally {
       setBusy(false);
     }
