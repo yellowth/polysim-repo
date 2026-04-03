@@ -1,0 +1,17 @@
+.git
+.gitignore
+**/__pycache__
+**/*.py[cod]
+.pytest_cache
+.env
+.env.*
+**/node_modules
+frontend/
+policy-extract/
+eval/
+venv
+.venv
+**/*.md
+**/*.log
+frontend/dist
+.vite
