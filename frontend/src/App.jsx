@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { httpUrl } from "./apiConfig";
 import Header from "./components/Header";
 import MapView from "./components/MapView";
 import SidePanel from "./components/SidePanel";
@@ -38,14 +39,14 @@ export default function App() {
   const handleUpload = async (file) => {
     const form = new FormData();
     form.append("file", file);
-    const res = await fetch("http://localhost:8000/api/upload", { method: "POST", body: form });
+    const res = await fetch(httpUrl("/api/upload"), { method: "POST", body: form });
     const data = await res.json();
     await _applyConfigAndProceed(data.policy_id, data.provisions, null);
   };
 
   // ── Stage B: paste text ──────────────────────────────────────────────────────
   const handleText = async (text) => {
-    const res = await fetch("http://localhost:8000/api/upload-text", {
+    const res = await fetch(httpUrl("/api/upload-text"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text }),
@@ -64,7 +65,7 @@ export default function App() {
   // ── Attach region config if one was configured, then proceed ─────────────────
   const _applyConfigAndProceed = async (pid, provs, frame) => {
     if (regionConfig?.config_id) {
-      await fetch(`http://localhost:8000/api/apply-config/${pid}`, {
+      await fetch(httpUrl(`/api/apply-config/${pid}`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ config_id: regionConfig.config_id }),
@@ -83,7 +84,7 @@ export default function App() {
 
   const handleLeverChange = async (lever, value) => {
     const res = await fetch(
-      `http://localhost:8000/api/adjust/${policyId}?lever=${lever}&value=${value}`,
+      httpUrl(`/api/adjust/${policyId}?lever=${lever}&value=${value}`),
       { method: "POST" }
     );
     const data = await res.json();

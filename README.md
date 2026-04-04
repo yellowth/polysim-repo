@@ -234,6 +234,15 @@ Current profile/election facts verified from repo contents:
 
 ## Running the App
 
+### Railway (backend API)
+
+This repo is a monorepo (`frontend/`, `policy-extract/`, `backend/`). Railway’s **Railpack** auto-builder can fail with “Error creating build plan with Railpack” because it sees multiple stacks.
+
+1. Keep the service **Root Directory** at the **repository root** (clear the field or use `/`). The root [`Dockerfile`](Dockerfile) copies `backend/` and `data/` and runs uvicorn; Railway uses Docker and skips Railpack.
+2. Do **not** set Root Directory to `backend` only — the API expects [`data/`](data/) next to `backend/` on disk.
+3. Add env vars from [`.env.example`](.env.example) (e.g. `OPENAI_API_KEY` if not using mock mode).
+4. Point the frontend at the public URL: build with `VITE_API_URL=https://<your-service>.up.railway.app` (see `frontend/.env.example`).
+
 ### Quick start
 
 ```bash

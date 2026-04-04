@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from "react";
+import { wsUrl } from "../apiConfig";
 
 export default function useSimulation() {
   const [status, setStatus] = useState("idle"); // idle | connecting | simulating | complete
@@ -47,7 +48,7 @@ export default function useSimulation() {
     agentCountRef.current = 0;
 
     const agents = agentCountOverride || 100;
-    const ws = new WebSocket(`ws://localhost:8000/ws/simulate/${policyId}?agents=${agents}`);
+    const ws = new WebSocket(wsUrl(`/ws/simulate/${policyId}?agents=${agents}`));
     wsRef.current = ws;
 
     ws.onopen = () => setStatus("simulating");
